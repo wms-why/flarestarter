@@ -12,12 +12,46 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
-# Stripe — blank disables billing. Forward webhooks locally with `stripe listen`.
+# ── Billing ─────────────────────────────────────────────────────────────────
+# Which vendors the checkout page offers. Comma-separated ids:
+#   stripe, waffo, creem, paypal   (any subset, in any order)
+# Unset or empty = ALL of them — each is still gated on its own secrets below, so
+# this cannot enable anything you have not configured. To turn one off, remove
+# its id from this list.
+BILLING_PROVIDERS=
+#
+# Product ids are NOT here — they live with the tiers they belong to, in
+# src/features/billing/plans.ts (`productIds` per tier and interval).
+
+# Stripe. Forward webhooks locally with `stripe listen --forward-to
+# localhost:3000/api/webhooks/stripe`.
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-STRIPE_PRICE_PRO_MONTHLY=
-STRIPE_PRICE_PRO_YEARLY=
-STRIPE_PRICE_PRO_LIFETIME=
+# prod selects production keys/endpoints; anything else is test/sandbox.
+WAFFO_ENV=
+CREEM_ENV=
+PAYPAL_ENV=
+
+# Waffo Pancake — RSA keypair. The private key may be raw PEM (with literal or
+# \n-escaped newlines) or base64 via WAFFO_PRIVATE_KEY_BASE64. The webhook public
+# key is REQUIRED: without it the SDK falls back to its own bundled keypair,
+# which we do not trust, so Waffo hides itself instead.
+WAFFO_MERCHANT_ID=
+WAFFO_PRIVATE_KEY=
+WAFFO_PRIVATE_KEY_BASE64=
+WAFFO_WEBHOOK_PUBLIC_KEY=
+
+# Creem — both keys required; Creem refuses to construct without the webhook
+# secret even if you never register a webhook.
+CREEM_API_KEY=
+CREEM_WEBHOOK_SECRET=
+
+# PayPal — all three required. PA..._WEBHOOK_ID is the WH-... id from the webhook
+# you create in the dashboard; it is part of PayPal's verification call.
+# Without it PayPal can mint checkouts but cannot record completions.
+PAYPAL_CLIENT_ID=
+PAYPAL_CLIENT_SECRET=
+PAYPAL_WEBHOOK_ID=
 # WeChat Pay on one-time sponsorships, via Stripe's wechat_pay — no WeChat merchant
 # account needed. On by default once the Stripe keys are set, but you MUST first enable
 # WeChat Pay in Stripe Dashboard -> Payment methods, or clicking it errors out. Set to

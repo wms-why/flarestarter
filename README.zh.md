@@ -53,7 +53,7 @@ FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实�
 | 模块 | 能力 |
 |------|------|
 | **认证** | 基于 [better-auth](https://better-auth.com) 的邮箱密码登录（强制邮箱验证）、找回密码、注销账号。Google 与 GitHub OAuth ——未配置环境变量时按钮自动隐藏（优雅降级）。会话以 D1 作为唯一数据源，并配合 cookie 缓存。 |
-| **计费** | [Stripe](https://stripe.com) 订阅（月付/年付）**以及**一次性终身买断、Customer Portal 入口、基于套餐的路由守卫 (`requirePlan`)、幂等 webhook 处理、可靠触发的计费事件钩子（例如「Pro 激活时发一封邮件」）。续费扣款失败时在 app 内提示更新支付方式（重试邮件交给 Stripe）——见 [计费文档](https://flarestarter.com/docs/features/billing)。 |
+| **计费** | 四家可互换的支付服务商——**Stripe**、**Waffo Pancake**、**Creem**、**PayPal**——每家由一个 `BILLING_PROVIDERS` 开关控制启停，并各自受密钥门控。档位、价格、功能点、以及每家在各周期上的商品 ID 全部收敛在一个配置文件（`src/features/billing/plans.ts`）里：定价页由它渲染，结账页先展示订单的价格与具体权益，再让买家挑支付商。配置驱动的三档（免费 / Pro / 企业版）、与服务商无关的幂等 webhook、基于套餐的路由守卫，续费扣款失败时在 app 内提示更新支付方式（重试邮件交给服务商）——见 [计费文档](https://flarestarter.com/docs/features/billing)。 |
 | **存储** | [R2](https://developers.cloudflare.com/r2/) 对象存储，内置完整的头像上传功能（包含类型与大小校验）。R2 存储桶默认非公开，图片通过服务端路由以流式代理返回。本地开发经 miniflare 零配置即可使用。这可用作后续所有文件上传功能的参考实现——见 [存储文档](https://flarestarter.com/docs/features/storage)。 |
 | **邮件** | [Resend](https://resend.com) + 字符串模板（React Email 在 workerd 上不可用）。如果没配 API key，邮件会直接打印到控制台，确保本地开发不会被卡住。 |
 | **等待列表 (Waitlist)** | 完整的 pre-launch 报名闭环：公开报名页、Turnstile 防刷、后台管理页 + CSV 导出，报名邮箱自动同步到 [Resend](https://resend.com) audience（未配 key 时优雅跳过）。 |
@@ -74,7 +74,7 @@ FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实�
 - **[Cloudflare Workers](https://workers.cloudflare.com)** 运行时，经 `@cloudflare/vite-plugin` 部署
 - **[D1](https://developers.cloudflare.com/d1/)** (SQLite) + **[Drizzle ORM](https://orm.drizzle.team)** + 数据迁移
 - **[KV](https://developers.cloudflare.com/kv/)** 做缓存，**[R2](https://developers.cloudflare.com/r2/)** 做对象存储——已端到端接通（校验上传 + 私有服务路由），头像上传作参考实现
-- **[better-auth](https://better-auth.com)**、**[Stripe](https://stripe.com)**、**[Resend](https://resend.com)**
+- **[better-auth](https://better-auth.com)**、**[Stripe](https://stripe.com)**、**[Waffo](https://waffo.ai)**、**[Creem](https://creem.io)**、**[PayPal](https://paypal.com)**、**[Resend](https://resend.com)**
 - **[Tailwind CSS v4](https://tailwindcss.com)**
 - **[Vitest](https://vitest.dev)**（Node 单测 + 经 `@cloudflare/vitest-pool-workers` 的 Workers/D1 集成测试）
 
@@ -126,7 +126,7 @@ pnpm cf-typegen        # 从 wrangler.jsonc 重新生成 worker-configuration.d.
 src/
   features/        # 按业务逻辑纵向切片，每个模块自包含
     auth/          # better-auth 配置、中间件、社交登录按钮
-    billing/       # Stripe provider、权益控制、webhook、事件钩子
+    billing/       # 4 家支付服务商、档位配置、权益控制、webhook、事件钩子
     storage/       # R2 对象存储：校验上传 + 服务路由 (如头像)
     email/         # Resend 客户端 + 字符串模板
     waitlist/      # 报名页 + Turnstile + 后台管理 + CSV 导出 + Resend audience 同步
@@ -156,7 +156,7 @@ drizzle/           # 生成的 SQL 迁移文件（仓库根，与 src/ 同级）
 - `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（同时决定 canonical / sitemap origin）—— **必填**；启动时校验（见 [安全文档](https://flarestarter.com/docs/platform/security)）。
 - `RESEND_API_KEY`、`EMAIL_FROM`（邮件服务；留空则由控制台捕获）。
 - `GOOGLE_CLIENT_ID/SECRET`、`GITHUB_CLIENT_ID/SECRET`（可选社交登录）。
-- `STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_PRICE_PRO_*`（计费服务）；`STRIPE_WECHAT_PAY_ENABLED`（可选,设 `false` 关掉赞助页的微信支付入口）。
+- `BILLING_PROVIDERS`（计费服务商名单——`stripe,waffo,creem,paypal`；不设 = 四家全开，各家仍受密钥门控）；`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`，其余三家的 `WAFFO_*`、`CREEM_*`、`PAYPAL_*`。**商品 ID 在 `src/features/billing/plans.ts` 里，不在环境变量中**。`STRIPE_WECHAT_PAY_ENABLED`（可选,设 `false` 关掉赞助页的微信支付入口）。
 - `ADMIN_EMAILS`（管理员邮箱）。
 - `TURNSTILE_SITE_KEY`、`TURNSTILE_SECRET_KEY`（可选的 bot 防护——见 [安全文档](https://flarestarter.com/docs/platform/security)）。
 - `CF_ANALYTICS_TOKEN`、`SENTRY_DSN`（可选的数据分析 + 错误上报——见 [可观测性文档](https://flarestarter.com/docs/platform/observability)）。

@@ -53,7 +53,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 | Area | What you get |
 |------|--------------|
 | **Auth** | Email/password with mandatory verification, password reset, and account deletion via [better-auth](https://better-auth.com). Google & GitHub OAuth that gracefully hide themselves when their env vars are unset. Sessions use D1 as source of truth with a cookie cache. |
-| **Billing** | [Stripe](https://stripe.com) subscriptions (monthly/yearly) **and** one-time lifetime purchase, a Customer Portal link, plan-gated routes (`requirePlan`), idempotent webhook handling, and best-effort billing event hooks (e.g. "send an email when Pro activates"). Failed renewals surface an in-app "update your payment method" banner (retry emails are left to Stripe) — see [billing](https://flarestarter.com/docs/features/billing). |
+| **Billing** | Four interchangeable payment providers — **Stripe**, **Waffo Pancake**, **Creem**, **PayPal** — each enabled by one `BILLING_PROVIDERS` switch and gated on its own secrets. Tiers, prices, feature bullets and per-provider product ids all live in one config file (`src/features/billing/plans.ts`); the pricing page renders from it and the checkout page shows the order summary before letting the buyer pick a provider. Config-driven tiers (free / Pro / Enterprise) with idempotent, provider-agnostic webhooks, plan-gated routes, and an in-app "update your payment method" banner on failed renewals (retry emails left to the vendor) — see [billing](https://flarestarter.com/docs/features/billing). |
 | **Storage** | [R2](https://developers.cloudflare.com/r2/) object storage with a working avatar upload (validated, streamed back through a serving route since R2 isn't public). Zero-config locally via miniflare. The reference for any file-upload feature — see [storage](https://flarestarter.com/docs/features/storage). |
 | **Email** | [Resend](https://resend.com) with string templates (React Email isn't usable on workerd). Missing API key? Emails are captured to the console so local dev never blocks. |
 | **Waitlist** | A complete pre-launch signup loop: a public signup page, Turnstile bot protection, an admin management page + CSV export, and automatic subscriber sync into a [Resend](https://resend.com) audience (gracefully skipped when unconfigured). |
@@ -74,7 +74,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 - **[Cloudflare Workers](https://workers.cloudflare.com)** runtime, deployed via the `@cloudflare/vite-plugin`
 - **[D1](https://developers.cloudflare.com/d1/)** (SQLite) with **[Drizzle ORM](https://orm.drizzle.team)** + migrations
 - **[KV](https://developers.cloudflare.com/kv/)** for caching, **[R2](https://developers.cloudflare.com/r2/)** for object storage — wired end-to-end (validated upload + private serving route), with avatar upload as the reference
-- **[better-auth](https://better-auth.com)**, **[Stripe](https://stripe.com)**, **[Resend](https://resend.com)**
+- **[better-auth](https://better-auth.com)**, **[Stripe](https://stripe.com)**, **[Waffo](https://waffo.ai)**, **[Creem](https://creem.io)**, **[PayPal](https://paypal.com)**, **[Resend](https://resend.com)**
 - **[Tailwind CSS v4](https://tailwindcss.com)**
 - **[Vitest](https://vitest.dev)** (Node unit tests + Workers/D1 integration tests via `@cloudflare/vitest-pool-workers`)
 
@@ -127,7 +127,7 @@ pnpm cf-typegen        # regenerate worker-configuration.d.ts from wrangler.json
 src/
   features/        # vertical slices, each self-contained
     auth/          # better-auth setup, middleware, social buttons
-    billing/       # Stripe provider, entitlements, webhooks, hooks
+    billing/       # 4 payment providers, tier config, entitlements, webhooks, hooks
     storage/       # R2 object storage: validated upload + serving route (avatar)
     email/         # Resend client + string templates
     waitlist/      # signup page + Turnstile + admin mgmt + CSV export + Resend audience sync
@@ -157,7 +157,7 @@ See [`.dev.vars.example`](.dev.vars.example) for the full list. Locally everythi
 - `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (also drives canonical/sitemap origin) — **required**; validated at startup ([security](https://flarestarter.com/docs/platform/security))
 - `RESEND_API_KEY`, `EMAIL_FROM` (email; blank → console-captured)
 - `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` (optional social login)
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_*` (billing); `STRIPE_WECHAT_PAY_ENABLED` (optional — set `false` to turn off WeChat Pay on the sponsor page)
+- `BILLING_PROVIDERS` (billing provider roster — `stripe,waffo,creem,paypal`; unset = all, each still secret-gated); `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`; `WAFFO_*`, `CREEM_*`, `PAYPAL_*` for the others. **Product ids live in `src/features/billing/plans.ts`**, not in env. `STRIPE_WECHAT_PAY_ENABLED` (optional — set `false` to turn off WeChat Pay on the sponsor page)
 - `ADMIN_EMAILS`
 - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (optional bot protection — [security](https://flarestarter.com/docs/platform/security))
 - `CF_ANALYTICS_TOKEN`, `SENTRY_DSN` (optional analytics + error reporting — [observability](https://flarestarter.com/docs/platform/observability))

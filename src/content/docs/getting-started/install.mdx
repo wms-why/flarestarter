@@ -81,11 +81,15 @@ openssl rand -base64 32
   按钮不显示,填入后自动出现。
 - **邮件发送**:`RESEND_API_KEY` 留空时,验证/重置密码邮件的链接会**直接打印到
   `pnpm dev` 的控制台**(不真发),本地调试足够。详见 [邮件](/docs/features/email)。
-- **计费**:在 Stripe Dashboard(测试模式)建一个 Pro 产品 + 月/年两个 price,把 price
-  ID 填进 `STRIPE_PRICE_PRO_MONTHLY/YEARLY`,`STRIPE_SECRET_KEY` 填测试密钥
-  (`sk_test_…`)。本地转发 webhook:`stripe listen --forward-to
-  localhost:3000/api/webhooks/stripe`,把它打印的 `whsec_…` 填进
+- **计费**:在 Stripe Dashboard(测试模式)建一个 Pro 产品 + 月/年两个 price,把 price ID
+  填进 [`src/features/billing/plans.ts`](https://github.com/flarestarter/flarestarter/blob/main/src/features/billing/plans.ts)
+  里 `pro` 档的 `monthly.productIds.stripe` / `yearly.productIds.stripe`(商品 ID 不在环境变量里),
+  `STRIPE_SECRET_KEY` 填测试密钥(`sk_test_…`)。本地转发 webhook:`stripe listen
+  --forward-to localhost:3000/api/webhooks/stripe`,把它打印的 `whsec_…` 填进
   `STRIPE_WEBHOOK_SECRET`。详见 [计费](/docs/features/billing)。
+
+  > 商品 ID 填错或漏填时,`pnpm dev` 启动会打印告警,webhook 侧也会打错误日志——因为这会导致
+  > 「顾客付了钱却拿不到权益」,是这套计费里唯一不能静默的故障。
 - **运营后台**:`ADMIN_EMAILS` 填入你的邮箱,用该邮箱注册即获管理员权限,可访问
   `/admin`。详见 [基础 Admin](/docs/features/admin)。
 </Callout>

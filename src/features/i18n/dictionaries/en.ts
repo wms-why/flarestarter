@@ -113,6 +113,42 @@ export const en = {
     lifetimeOwned: 'Pro · Lifetime', lifetimeNote: 'One-time purchase — yours forever. Nothing to manage.',
     paymentFailedBanner: 'Your last payment failed. Update your payment method to keep your subscription active.',
     updatePaymentMethod: 'Update payment method',
+
+    // ── pricing page ───────────────────────────────────────────────────
+    pricingKicker: '// pricing',
+    pricingTitle: 'Open source core, paid tiers on top.',
+    pricingSubtitle:
+      'The free tier is the complete Apache 2.0 template — a real, deployable app. Pro and Enterprise add the paid modules, updates, and support for teams that need more.',
+    billingNote: 'Prices in USD. Taxes, where applicable, are added at checkout.',
+    intervalMonthly: 'Monthly', intervalYearly: 'Yearly',
+    perMonth: '/ month', perYear: '/ year', forever: 'forever',
+    mostPopular: 'Most popular',
+    roadmapNote: 'Gray items are on the roadmap but not yet shipped',
+    providersLabel: 'Accepted payment methods',
+    ctaGetStarted: 'Get started free',
+    ctaChoosePlan: 'Choose {name}',
+    notOnSaleCta: 'Not on sale yet',
+    orderIncludes: 'What this order includes',
+    roadmapLabel: 'Announced, not shipped yet',
+    roadmapNotIncluded: 'These are not part of this purchase.',
+    altYearly: 'or {amount} / year — save {savings}%',
+    altMonthly: 'or {amount} / month',
+    faqTitle: 'Questions buyers ask before checkout.',
+
+    // ── checkout page ──────────────────────────────────────────────────
+    choosePayment: 'Choose a payment method',
+    payingAs: 'Paying as {email}',
+    paidOnProviderSite: 'You will complete payment on the provider’s secure hosted page.',
+    backToPricing: 'Back to pricing',
+    noProviderTitle: 'No payment method is available right now.',
+    noProviderBody:
+      'The operator has not enabled a payment provider for this plan. If that is unexpected, check the BILLING_PROVIDERS switch and the provider secrets.',
+    cancelSubscription: 'Cancel subscription',
+    cancelPending: 'Cancelling',
+    cancelAwaitWebhook: 'Waiting for the payment provider to confirm. Refresh this page to see the final status.',
+    cancelPeriodEndHint: 'You keep access until the end of the paid period.',
+    cancelImmediateHint: 'This provider cancels immediately — access ends now.',
+    paidVia: 'Paid via {provider}',
   },
   admin: {
     title: 'Admin', dashboard: 'Overview', users: 'Users',

@@ -86,15 +86,22 @@ export function createAuth(authEnv: AuthEnv, db: DB) {
     user: {
       deleteUser: {
         enabled: true,
-        // 删号前取消在生效中的 Stripe 订阅：subscription 行随删号级联消失，customerId
-        // 映射一丢，Stripe 侧的活订阅将永远扣费且无法对账。抛错会中止删除（宁可删不掉）。
+        // 删号前取消在生效中的订阅：subscription 行随删号级联消失，customerId
+        // 映射一丢，商家侧的活订阅将永远扣费且无法对账。抛错会中止删除（宁可删不掉）。
         beforeDelete: async (user) => {
-          const { env } = await import('@/lib/env')
-          if (!env.STRIPE_SECRET_KEY) return // 未接 Stripe → 无订阅可取消
-          const { createStripeProvider } = await import('@/features/billing/stripe')
-          const { cancelSubscriptionsForUser } = await import('@/features/billing/billing.server')
-          const provider = createStripeProvider(env)
-          await cancelSubscriptionsForUser(db, (id) => provider.cancelSubscription(id), user.id)
+          const { cancelSubscriptionsForUser, getProviderForUser } = await import('@/features/billing/billing.server')
+          // Which vendor owns this user's row decides which API we must call —
+          // assuming Stripe would leave a Waffo/PayPal subscription billing forever.
+          const provider = await getProviderForUser(db, user.id)
+          if (!provider) return // 从未购买过 → 无订阅可取消
+          if (!provider.ok) {
+            // 行上确实有订阅，但该厂商的密钥已从 Worker 移除。我们无法再取消它。
+            // 放行删除（不该因为一个运维配置问题把人锁在账号里），但留下明确痕迹：
+            // 这笔订阅将失去对账能力，需要人工到商家后台取消。
+            console.warn(`[auth] deleting ${user.id} but ${provider.reason}. Their ${provider.storedProvider} subscription can no longer be cancelled automatically.`)
+            return
+          }
+          await cancelSubscriptionsForUser(db, (id) => provider.value.cancelSubscription(id), user.id)
         },
       },
     },

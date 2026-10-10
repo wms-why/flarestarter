@@ -1,5 +1,6 @@
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useTranslation } from '@/features/i18n/provider'
+import { isPaidPlanId, planLabel } from '@/features/admin/plan-label'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
@@ -22,7 +23,7 @@ export function initials(name: string, email: string): string {
 }
 
 export function UserTable({ rows, sortBy, sortDir, onSort, onRowClick }: Props) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
 
   function SortHead({ col, label, className }: { col: string; label: string; className?: string }) {
     const active = sortBy === col
@@ -74,7 +75,7 @@ export function UserTable({ rows, sortBy, sortDir, onSort, onRowClick }: Props) 
             </TableCell>
             <TableCell><span className="font-mono text-[12.5px] text-fg-3">{u.email}</span></TableCell>
             <TableCell>{u.role === 'admin' ? <Badge variant="pro">{t('admin.roleAdmin')}</Badge> : <span className="text-fg-2">{u.role ?? 'user'}</span>}</TableCell>
-            <TableCell className="hidden md:table-cell">{u.plan === 'pro' ? <Badge variant="pro">{t('admin.pro')}</Badge> : <span className="text-fg-3">{u.plan ? t('admin.free') : '—'}</span>}</TableCell>
+            <TableCell className="hidden md:table-cell">{planLabel(u.plan, locale) === null ? <span className="text-fg-3">—</span> : isPaidPlanId(u.plan) ? <Badge variant="pro">{planLabel(u.plan, locale)}</Badge> : <span className="text-fg-3">{planLabel(u.plan, locale)}</span>}</TableCell>
             <TableCell>{u.banned ? <Badge variant="warn" dot>{t('admin.banned')}</Badge> : <Badge variant="ok" dot>{t('admin.active')}</Badge>}</TableCell>
             <TableCell className="hidden text-fg-3 md:table-cell">{fmtDate(u.createdAt)}</TableCell>
           </TableRow>

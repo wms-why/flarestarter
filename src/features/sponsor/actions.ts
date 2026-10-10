@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 export const startSponsorship = createServerFn({ method: 'POST' })
-  .inputValidator((d: { mode: 'once' | 'monthly'; amountCents: number; github?: string; message?: string; method?: 'card' | 'wechat' }) => d)
+  .validator((d: { mode: 'once' | 'monthly'; amountCents: number; github?: string; message?: string; method?: 'card' | 'wechat' }) => d)
   .handler(async ({ data }): Promise<{ url: string }> => {
     const { env } = await import('@/lib/env')
     if (!env.STRIPE_SECRET_KEY) throw new Error('Sponsorship not configured')
@@ -41,7 +41,7 @@ export const getSponsorConfig = createServerFn({ method: 'GET' }).handler(async 
 })
 
 export const getSponsorManageLink = createServerFn({ method: 'POST' })
-  .inputValidator((d: { sessionId: string }) => d)
+  .validator((d: { sessionId: string }) => d)
   .handler(async ({ data }): Promise<{ url: string | null }> => {
     const { env } = await import('@/lib/env')
     if (!env.STRIPE_SECRET_KEY || !data.sessionId) return { url: null }

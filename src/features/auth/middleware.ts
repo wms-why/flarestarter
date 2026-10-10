@@ -17,7 +17,7 @@ export const getOptionalUser = createServerFn({ method: 'GET' }).handler(
 export const requireUser = createServerFn({ method: 'GET' })
   // locale 由调用方（路由 loader 的 params）传入：server fn 在客户端导航时经 RPC 调用，
   // 无法从请求 URL 推断页面语言；不带 params 的 '/{-$locale}/login' 会恒定跳到英文登录页。
-  .inputValidator((d?: { locale?: string }) => ({ locale: d?.locale === 'zh' ? ('zh' as const) : undefined }))
+  .validator((d?: { locale?: string }) => ({ locale: d?.locale === 'zh' ? ('zh' as const) : undefined }))
   .handler(async ({ data }) => {
     const user = await readUser()
     if (!user) throw redirect({ to: '/{-$locale}/login', params: { locale: data?.locale } })

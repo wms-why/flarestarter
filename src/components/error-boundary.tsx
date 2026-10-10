@@ -10,7 +10,13 @@
  * contain secrets or internals; sanitize before throwing.
  */
 import { useEffect } from 'react'
-export function ErrorPage({ error, reset }: { error: Error; reset: () => void }) {
+import type { ErrorComponentProps } from '@tanstack/react-router'
+// Typed against the router's own props rather than a hand-written shape: the
+// router intersects these with `preload?` (ErrorRouteComponent), so the narrower
+// local shape this replaced stopped satisfying the contract on a version bump.
+export function ErrorPage({ error, reset }: ErrorComponentProps) {
+  // Router error props are untyped by design; narrow before surfacing text.
+  const message = error instanceof Error ? error.message : String(error)
   // document.title, not a rendered <title>: the root head() already emits one,
   // and React 19 hoisting would append a second (invalid, and browsers keep the first).
   useEffect(() => {
@@ -26,7 +32,7 @@ export function ErrorPage({ error, reset }: { error: Error; reset: () => void })
       </p>
       {import.meta.env.DEV && (
         <pre className="max-w-[40em] overflow-auto rounded-[6px] bg-bg-2 p-4 text-left text-[13px] text-fg-2">
-          {error.message}
+          {message}
         </pre>
       )}
       <div className="flex gap-3">

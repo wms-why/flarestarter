@@ -4,16 +4,30 @@ import { user } from '@/features/auth/auth.schema'
 export const subscription = sqliteTable('subscription', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  // Which vendor owns this row: 'stripe' | 'waffo' | 'creem' | 'paypal'.
+  // Decides portal vs in-app cancel, and gates inbound webhooks — an event from
+  // a vendor that does not own the row is ignored (see applyDomainEvent).
   provider: text('provider').notNull().default('stripe'),
-  customerId: text('customer_id').notNull(),
+  // Nullable because PayPal exposes no stable customer id we can pre-create.
+  customerId: text('customer_id'),
+  // Vendor-side subscription identifier (Stripe sub_… / Waffo orderId /
+  // Creem subscription id / PayPal I-…). What cancelSubscription receives.
   subscriptionId: text('subscription_id'),
   status: text('status').notNull().default('none'),
+  // 'free' | 'pro' | 'enterprise'. Text rather than an enum so plans.ts can gain
+  // a tier without a migration.
   plan: text('plan').notNull().default('free'),
+  // Vendor-side product/plan id, resolved from plans.ts. Kept for display and
+  // reconciliation; authority always lives in plans.ts.
   priceId: text('price_id'),
   currentPeriodEnd: integer('current_period_end'),            // epoch ms
   cancelAtPeriodEnd: integer('cancel_at_period_end', { mode: 'boolean' }).notNull().default(false),
   lifetime: integer('lifetime', { mode: 'boolean' }).notNull().default(false),
-  lifetimePaymentIntentId: text('lifetime_payment_intent_id'), // 买断那笔付款的 PI——退款事件按此精确匹配，防止同客户其他 charge 的退款误撤终身授权
+  // The payment reference for a one-time purchase: Stripe payment_intent id,
+  // Waffo orderId, Creem checkout id, PayPal capture id. Refunds are matched
+  // exactly against this so an unrelated refund on the same account cannot
+  // revoke a grant it has nothing to do with.
+  lifetimePaymentRef: text('lifetime_payment_ref'),
 
   paymentFailedAt: integer('payment_failed_at'),              // epoch ms；非空 = 续费扣款失败待用户处理（清除于恢复扣款）
   lastEventAt: integer('last_event_at'),                      // epoch ms；已应用的最新订阅流事件时间（乱序守卫，见 applyDomainEvent）

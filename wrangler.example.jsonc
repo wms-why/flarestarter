@@ -87,11 +87,16 @@
 		"GOOGLE_CLIENT_SECRET": "",
 		"GITHUB_CLIENT_ID": "",
 		"GITHUB_CLIENT_SECRET": "",
+		// Which billing vendors the checkout offers: "stripe", "waffo", "creem",
+		// "paypal", comma-separated. Unset = all of them (each still secret-gated).
+		// Vendor product ids live in src/features/billing/plans.ts, not here.
+		"BILLING_PROVIDERS": "",
+		// Non-secret mode switches. Blank = sandbox/test; "live"/"prod" for production.
+		"WAFFO_ENV": "",
+		"CREEM_ENV": "",
+		"PAYPAL_ENV": "",
 		"STRIPE_SECRET_KEY": "",
 		"STRIPE_WEBHOOK_SECRET": "",
-		"STRIPE_PRICE_PRO_MONTHLY": "",
-		"STRIPE_PRICE_PRO_YEARLY": "",
-		"STRIPE_PRICE_PRO_LIFETIME": "",
 		"ADMIN_EMAILS": "",
 		"TURNSTILE_SITE_KEY": "",
 		"TURNSTILE_SECRET_KEY": "",

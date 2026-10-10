@@ -130,7 +130,7 @@ function AccountPage() {
         </Section>
 
         <Section title={t('billing.currentPlan')}>
-          <ManageSubscription plan={ent.plan} status={ent.status} currentPeriodEnd={ent.currentPeriodEnd} lifetime={ent.lifetime} />
+          <ManageSubscription plan={ent.plan} status={ent.status} currentPeriodEnd={ent.currentPeriodEnd} lifetime={ent.lifetime} provider={ent.provider} />
         </Section>
 
         {user.role === 'admin' && (

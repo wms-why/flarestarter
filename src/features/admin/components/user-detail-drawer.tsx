@@ -4,6 +4,7 @@ import { Ban, Check, Copy, ExternalLink, LogIn, CalendarIcon } from 'lucide-reac
 import { toast } from 'sonner'
 import { authClient } from '@/features/auth/auth.client'
 import { useTranslation } from '@/features/i18n/provider'
+import { isPaidPlanId, planLabel } from '@/features/admin/plan-label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -28,7 +29,7 @@ interface Props {
 
 
 export function UserDetailDrawer({ row, open, onOpenChange, currentUserId, onChanged }: Props) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const router = useRouter()
   const isMobile = useIsMobile()
   const [reason, setReason] = useState('')
@@ -116,7 +117,7 @@ export function UserDetailDrawer({ row, open, onOpenChange, currentUserId, onCha
             <div className="grid gap-1"><span className="text-fg-3 text-xs">{t('admin.updated')}</span><span>{fmtDate(row.updatedAt)}</span></div>
             <div className="grid gap-1">
               <span className="text-fg-3 text-xs">{t('admin.plan')}</span>
-              <span>{row.plan === 'pro' ? <Badge variant="pro">{t('admin.pro')}</Badge> : row.plan ? t('admin.free') : '—'}</span>
+              <span>{planLabel(row.plan, locale) === null ? '—' : isPaidPlanId(row.plan) ? <Badge variant="pro">{planLabel(row.plan, locale)}</Badge> : planLabel(row.plan, locale)}</span>
             </div>
             <div className="grid gap-1"><span className="text-fg-3 text-xs">{t('admin.status')}</span><span>{row.status ?? '—'}</span></div>
           </div>

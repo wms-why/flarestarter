@@ -12,11 +12,11 @@ beforeAll(async () => {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS "subscription" (
       "id" TEXT PRIMARY KEY NOT NULL, "user_id" TEXT NOT NULL UNIQUE,
-      "provider" TEXT NOT NULL DEFAULT 'stripe', "customer_id" TEXT NOT NULL,
+      "provider" TEXT NOT NULL DEFAULT 'stripe', "customer_id" TEXT,
       "subscription_id" TEXT, "status" TEXT NOT NULL DEFAULT 'none',
       "plan" TEXT NOT NULL DEFAULT 'free', "price_id" TEXT,
       "current_period_end" INTEGER, "cancel_at_period_end" INTEGER NOT NULL DEFAULT 0,
-      "lifetime" INTEGER NOT NULL DEFAULT 0, "lifetime_payment_intent_id" TEXT, "payment_failed_at" INTEGER, "last_event_at" INTEGER,
+      "lifetime" INTEGER NOT NULL DEFAULT 0, "lifetime_payment_ref" TEXT, "payment_failed_at" INTEGER, "last_event_at" INTEGER,
       "created_at" INTEGER NOT NULL, "updated_at" INTEGER NOT NULL,
       FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE)`,
   ).run()

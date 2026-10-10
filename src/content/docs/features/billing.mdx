@@ -2,105 +2,152 @@
 title: "计费与订阅"
 ---
 
-基于 Stripe 的订阅(月付/年付)**与**一次性终身买断,带幂等 webhook、套餐门控(`requirePlan`)、计费事件钩子。本页讲**权益模型**、**webhook 处理**、以及**扣款失败(dunning)**怎么分工。
+四种支付服务商(Stripe / Waffo / Creem / PayPal)可任意组合启停,档位与商品 ID 全部收敛在一个配置文件里,webhook 幂等落库、套餐门控、扣款失败(dunning)站内提示。本页讲**档位配置**、**支付商开关**、**webhook 处理**与**权益模型**。
+
+## 一个文件决定全部:`features/billing/plans.ts`
+
+档位、价格、功能点、以及**每家支付服务商在每个周期上的商品 ID**,都写在这一个纯数据模块里。改完这一处,定价页、结账页、服务端商品校验、webhook 档位反查全部同步——组件里没有任何硬编码的档位或价格。
+
+```ts
+export const planTiers = [
+  {
+    id: 'pro',
+    name: { en: 'Pro', zh: 'Pro' },
+    summary: { ... },
+    featured: true,
+    monthly: { amountUsd: 9,  productIds: { stripe: 'price_…', waffo: 'PROD_…', creem: 'prod_…', paypal: 'P-…' } },
+    yearly:  { amountUsd: 90, productIds: { ... } },
+    bullets: [
+      { text: { en: 'Everything in the Free tier', zh: '免费版的全部功能' }, enabled: true },
+      { text: { en: 'SSO / SAML + audit log', zh: 'SSO / SAML + 审计日志' }, enabled: false },
+    ],
+  },
+] as const satisfies readonly PlanTier[]
+```
+
+几个约定:
+
+- **`productIds` 的空串 = 该服务商在这个档位/周期上没有商品**,结账页不会出现它的按钮。这不是错误。
+- **PayPal 的商品 ID 必须以 `P-` 开头**(订阅计划 ID)。不带前缀会让适配器静默降级成一次性订单并被 PayPal 拒绝,所以 `startCheckout` 显式校验并报错。
+- **`bullets[].enabled: false` = 尚未上线**。定价页灰显展示;**结账页把它们单独列在「已公布,尚未上线」区块**,不混进「这笔订单包含」——订单页不该承诺还没上线的东西。
+- 旧的 `STRIPE_PRICE_PRO_*` 变量已移除。商品 ID 本来就要下发到收银台,不是密钥;和档位放在一起才能一眼看清「谁能在哪儿买什么」。
+
+## 支付服务商与开关
+
+`BILLING_PROVIDERS` 是唯一的启停开关,非密钥 `wrangler.jsonc#vars`:
+
+```
+BILLING_PROVIDERS=stripe,waffo
+```
+
+- **未设置或为空 = 四家全开**,但每家仍各自受密钥门控。这样「配了 Creem 密钥却忘了配开关」不会静默失效;真正关闭某一家,就把它的 id 从列表里删掉。
+- 注意区分两个概念:定价页的 **logo 条**只反映开关(「我们接受哪些支付方式」),而**结账页的按钮**是开关 ∩ 密钥 ∩ 商品 ID 三者交集(「现在点什么真能付」)。所以全新克隆的部署会在 logo 条上看到四家、而在结账页看到零家——这是设计如此,填完 `plans.ts` 商品 ID 后即一致。
+- 一个服务商要真正出现在结账页,必须同时满足三条:①在 `BILLING_PROVIDERS` 里 ②该家密钥齐全 ③`plans.ts` 里该档该周期的 `productIds[id]` 非空。
+- 判定只有一处:`providers/registry.ts` 的 `resolvePurchase(env, tier, interval, provider)`。**结账页渲染按钮和 `startCheckout` 建会话调用的是同一个函数**,所以「页面上能点的按钮」和「点了真能付」不可能不一致——包括 PayPal 的 `P-` 前缀校验,它同时作用在两条路径上(否则页面会画出一个必然报错的按钮)。`startCheckout` 仍是安全边界:客户端传来的 `provider` 会被重新判定一次。
+
+| 服务商 | 所需变量(全部 `wrangler secret put`) | 非密钥变量 |
+|---|---|---|
+| Stripe | `STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET` | — |
+| Waffo Pancake | `WAFFO_MERCHANT_ID`、`WAFFO_PRIVATE_KEY`(或 `WAFFO_PRIVATE_KEY_BASE64`)、`WAFFO_WEBHOOK_PUBLIC_KEY` | `WAFFO_ENV` |
+| Creem | `CREEM_API_KEY`、`CREEM_WEBHOOK_SECRET` | `CREEM_ENV` |
+| PayPal | `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET`、`PAYPAL_WEBHOOK_ID` | `PAYPAL_ENV` |
+
+`CREEM_ENV` / `PAYPAL_ENV` / `WAFFO_ENV` **默认沙箱**,上生产需显式设成 `live`。
+
+`env-validate.ts` 在启动时对两种情况给出提示:
+
+- **在 `BILLING_PROVIDERS` 里但密钥不全** → warn。这类错误的症状是「按钮不见了」而不是报错,不主动提示就只能等第一个付不了款的客户。
+- **密钥齐全但 `plans.ts` 里一个商品 ID 都没有** → warn,并且措辞很重。因为这是唯一会导致**「顾客付了钱却什么都没拿到」**的故障:webhook 验签正常、定价页正常渲染,只是 `tierForProduct` 反查不出档位。webhook 侧还会再打一条 `console.error` 点名是哪个商品 ID 对不上。
+
+半套凭据(只配了 key 没配 secret)是**硬错误**,与 OAuth 的处理一致——但**只在 `BILLING_PROVIDERS` 列出了该家时才判定**。开关未设等于「四家全开、各自受密钥门控」,无条件判定会让一个几个月前随手设过 `CREEM_API_KEY`、从未启用 Creem 的部署直接启动崩溃,正好违反本仓库的优雅降级约定。
+
+### Webhook 回调地址
+
+每家一个路由(签名头在各自边界处理):
+
+| 服务商 | 回调 URL | 签名头 |
+|---|---|---|
+| Stripe | `/api/webhooks/stripe` | `stripe-signature` |
+| Waffo | `/api/webhooks/waffo` | `x-waffo-signature` |
+| Creem | `/api/webhooks/creem` | `creem-signature` |
+| PayPal | `/api/webhooks/paypal` | 5 个 `paypal-*` 头 |
+
+本地开发把公网隧道指向 Vite dev server 即可(例如 `https://<tunnel>/api/webhooks/creem`)。
+
+验签方式各不相同:
+
+- **Waffo / Creem** 覆盖**原始字节**,所以路由必须先 `await request.text()` 再做任何解析。任何「先 parse 再序列化」的写法都会让签名校验假性失败——`webhook-handler.ts` 把这个顺序收敛到一处。
+- **PayPal** 的 RSA 签名需要 X.509 证书链,而 Workers 没有 `crypto.createVerify`,因此改为把投递转发到 PayPal 官方的 `verify-webhook-signature` 接口由它裁决。**该接口 5xx 时路由回 502**(让 PayPal 重投),签名判定失败回 400——两者混为一谈会静默丢掉真实付款事件。
+- **Stripe** 的路由是唯一一个手写的:赞助和产品计费共用它,验签一次后分流。
+
+### 归属用户:三家没有 customer id
+
+只有 Stripe 允许预创建 customer。Waffo / Creem / PayPal 的 webhook 靠下单时写进 `metadata` 的 `userId` 回传(`applyDomainEvent` 优先按 `userId` 定位订阅行,其次按 `customerId`,都没有则忽略)。
+
+`subscription.provider` 记录该行属于哪一家,**webhook 到达时会核对**:不属于本厂商的事件一律忽略。否则用户在 waffo 重新付费后,一条几小时前迟到的旧 Stripe 事件会把新订阅降级。
+
+幂等键写作 `${providerId}:${eventId}`,四家的事件 ID 因此不会互相吞掉重投。
+
+## 取消订阅:我们只写意图,厂商 webhook 写终态
+
+点击「取消订阅」后发生的事,顺序是有讲究的:
+
+1. **先在厂商侧取消**。失败就抛错,不留「本地说在取消中、厂商根本没收到」的假状态。
+2. **本地只写 `canceling`**,绝不写 `canceled` / 降级 free。
+3. **页面立即显示「取消中」**,并说明「正在等待支付服务商确认,刷新本页可查看最终状态」。
+4. **厂商 webhook 到达**后,由 `applyDomainEvent` 写入真正的终态。
+
+为什么本地不直接写终态?因为只有厂商知道这次取消**是否真的生效**。我们先写终态,就会和厂商状态分叉——用户看到「已取消」,厂商其实还在扣费。
+
+那为什么还要写一次 `canceling`?因为刷新页面时它比 `active` 诚实:用户点了取消、厂商还没回 webhook 时,行上写着 `active` 会让人以为没点上。
+
+**已知取舍**:若 webhook 丢失(例如验签 400 这类不会被重投的情况),行会停在 `canceling`。这是刻意的——停在 `canceling` 用户看得见并会重试;停在 `active` 则会静默地继续扣费。
+
+另外 **`canceling` 仍然算有效权益**:期末生效型厂商(Creem 的 scheduled_cancel、Stripe 的 `cancel_at_period_end`)表示「已付费周期结束前仍然可用」。如果把 `canceling` 排除在有效状态外,一个刚点了取消的用户会在周期结束前立刻失去已付费的权益。
 
 ## 权益模型(`entitlement.ts`)
 
-`getEntitlement()` 返回一个 `Entitlement`:`{ plan, status, isActive, currentPeriodEnd, lifetime, paymentFailed }`。
+`getEntitlement()` 返回 `Entitlement`:`{ plan, status, isActive, currentPeriodEnd, lifetime, paymentFailed, provider }`。
 
-- `plan`:`free` | `pro`。`requirePlan('pro')` 据此做路由门控;`role === 'admin'` 直接放行(角色高于付费墙)。功能门控用 `hasProAccess(role, ent)`,计费 UI(套餐徽章/升级按钮)保持用 `ent.plan` 反映真实订阅。
-- `lifetime`:终身买断优先于一切 status(即使 `canceled` 仍是 Pro)。
+- `plan`:`free` | `pro` | `enterprise`。`isAtLeastTier(plan, 'pro')` 做门控(企业版天然过 Pro 门);`role === 'admin'` 直接放行。功能门控用 `hasProAccess(role, ent)`,计费 UI 保持用 `ent.plan` 反映真实订阅。
+- `provider`:决定账户页显示「管理订阅」(Stripe 客户门户)还是「取消订阅」(其余三家站内取消),并按 `cancelMode` 提示**期末生效**还是**立即生效**——Creem 是期末,Waffo / PayPal 没有「期末取消」这个选项,当场生效。
+- `lifetime`:一次性买断优先于一切 status。**当前 `startCheckout` 只开订阅模式**,所以一次性订单的 UI 入口还不存在;`lifetime` 列、`purchase.completed` / `purchase.refunded` 事件与对应逻辑保留着,是为存量数据和将来开放一次性商品准备的。⚠️ PayPal 的一次性分支目前**不可用**(`purchase.completed` 记的是 `related_ids.order_id`,而退款事件不带该字段,退款无法精确匹配),所以上架一次性商品前需要先补这条。
 - `paymentFailed`:续费扣款失败的**站内信号**(见下文)。
 
-## Webhook 处理(开源版范围)
+## Webhook 处理
 
-`translateStripeEvent` 把 Stripe 事件翻成领域事件,落库时**幂等**(`processed_webhook_events` 去重):
+适配器把各厂商的事件归一成同一套领域事件(`subscription.upserted` / `subscription.deleted` / `purchase.completed` / `purchase.refunded` / `payment.failed` / `ignored`),落库时幂等(`processed_webhook_events` 去重)。档位不由事件自报,而是用**商品 ID 反查 `plans.ts`**(`tierForProduct`),所以客户端无法指定自己买了什么。
 
-| Stripe 事件 | 处理 |
-|------------|------|
-| `customer.subscription.created/updated` | upsert 订阅状态;`active/trialing` → Pro 门控开,`past_due` 等 → 关 |
-| `customer.subscription.deleted` | 降级 free |
-| `checkout.session.completed`(mode=payment) | 终身买断激活(仅 `payment_status=paid`;延迟到账时不预授) |
-| `checkout.session.async_payment_succeeded` | 延迟到账支付(ACH/SEPA 等)入账 → 终身买断激活 |
-| `charge.refunded`(全额) | 终身买断退款 → 降级 |
-| `invoice.payment_failed` | 置 `paymentFailed` flag(站内 banner),触发 `onPaymentFailed` 钩子 |
-| 其余(`invoice.paid` / dispute 等) | 忽略(商业版扩展点) |
-
-## 扣款失败(Dunning):Stripe 负责重试,app 负责站内提示
-
-**重试与催缴邮件交给 Stripe**——它做得比手搓的好,而且零代码:
-
-1. Stripe Dashboard → **Settings → Billing → Subscriptions and emails**。
-2. 开启 **Smart Retries**(智能重试失败扣款)。
-3. 开启 **failed payment 的客户邮件**(自带"更新支付方式"的托管链接)。
-4. 可选:配置重试耗尽后是 `cancel` 还是 `mark unpaid` 订阅。
-
-模板**只补 Stripe 给不了的那一件事——站内信号**:
-
-- 收到 `invoice.payment_failed` → 在订阅行置 `payment_failed_at`(`billing.server.ts`)。
-- `resolveEntitlement` 据此暴露 `entitlement.paymentFailed`。
-- 登录后的 app 顶部显示 [`PaymentFailedBanner`](https://github.com/flarestarter/flarestarter/blob/main/src/features/billing/components/payment-failed-banner.tsx):"上次扣款失败,请更新支付方式" → 跳 Stripe Customer Portal 换卡。
-- 扣款恢复(订阅回到 `active/trialing`)时,flag **自动清除**。
-
-> 为什么不在 app 里发阶梯催缴邮件?那会和 Stripe 的能力重复、且节奏脆弱。分工后,**dunning 不需要 Cron**——这也是 Cron 在开源版被定性为"清理任务参考实现"而非计费基建的原因(见 [cf-gotchas](/docs/platform/cf-gotchas))。
-
-## 微信支付(赞助页的一次性付款)
-
-微信支付走 **Stripe 的 `wechat_pay`**,不需要独立的微信商户号——对本系统而言它只是"一笔非 USD 计价的普通 Stripe 收款",webhook / 退款 / 幂等全部复用现有链路。
-
-**只在赞助页(`/sponsor`)的一次性赞助上提供**,原因是 Stripe 的 `wechat_pay` 不支持 `subscription` / `setup` mode(recurring 目前仍是 private preview)。所以:
-
-- 月度赞助、Pro 月付/年付订阅 → **没有**微信入口(前端不渲染按钮,后端一并拒绝)。
-- Pro 终身买断虽然是一次性付款,但当前用预设 Price ID(USD)结账,未接微信——需要时按 `sponsor.stripe.ts` 的写法照搬即可。
-
-### 收款币种与固定汇率
-
-`wechat_pay` 按 **Stripe 商户国**限制计价币种:`cny` 所有国家可用、`hkd` 仅 HK 账户、`usd` 仅 US 账户,其余各限对应国家。**HK 账户不能用 USD 收微信款**——所以配置里给了一个固定汇率:
-
-```ts
-// src/features/sponsor/sponsor.config.ts
-wechat: {
-  currency: 'hkd',  // 必须匹配你的 Stripe 商户国
-  usdRate: 7.8,     // 1 USD 折多少 currency
-}
-```
-
-定价基准仍是 **USD**(档位/自定义金额都是美分);`usdRate` 只在**创建 Checkout Session 那一刻**换算一次,结果随即冻结进订单:
-
-| 列 | 含义 |
+| 领域事件 | 处理 |
 |---|---|
-| `amount` + `currency` | 实收额(微信为 HKD 分)。对账 Stripe 流水的口径,**永不换算** |
-| `amount_usd` | 冻结的 USD 分等值(写入 session metadata 再由 webhook 回读) |
+| `subscription.upserted` | upsert 订阅状态;`active/trialing` → 门控开;`canceling` → 保留权益并置 `cancel_at_period_end` |
+| `subscription.deleted` | 降级 free |
+| `purchase.completed` | 买断激活;先在厂商侧停掉在生效中的订阅,避免双扣费 |
+| `purchase.refunded` | 按支付引用精确匹配后撤授权——同账户其他 charge 的退款与本次授权无关 |
+| `payment.failed` | 置 `payment_failed_at`(站内 banner),触发 `onPaymentFailed` 钩子 |
+| `ignored` | 200 且**不占幂等表**(否则账户上每个无关事件都永久留痕) |
 
-**赞助墙的累计分层只用 `amount_usd`**——它把同一 GitHub 的多行金额相加再比阈值,混币种直接相加会把 HK$78 算成 $78 顶进金牌档。冻结而非读取时换算,意味着日后调 `usdRate` 只影响新订单,历史订单展示不漂移。换算逻辑与单测在 `src/features/sponsor/currency.ts`。
+厂商侧状态与事件的对应关系(容易踩的两处):**Waffo / Creem 的「取消中」是 upsert 而非 delete**(付费周期未结束);**Creem 的 `unpaid` 归 `payment.failed`** 而不是取消。
 
-顾客在微信收银台看到的始终是换算后的**人民币**金额,与 `currency` 填什么无关。
+## 扣款失败(Dunning)
 
-### 上线前提与开关
+重试与催缴邮件**交给各自的厂商**——它们做得比手搓的好,而且零代码:在各自 Dashboard 开启智能重试与失败邮件。
 
-1. **必须**先在 Stripe Dashboard → **Payment methods** 为该账户开通 WeChat Pay。这一步无法从代码探测,未开通时用户点击会由 Stripe 报错。
-2. 入口**默认开**:`STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` 配好即显示。
-3. kill switch:设 `STRIPE_WECHAT_PAY_ENABLED=false` 即隐藏按钮并拒绝下单。
+模板只补厂商给不了的那一件事——**站内信号**:
 
-### 退款说明
+- 收到 `payment.failed` → 订阅行置 `payment_failed_at`(`billing.server.ts`)。
+- `resolveEntitlement` 据此暴露 `entitlement.paymentFailed`。
+- 登录后的 app 顶部显示 `PaymentFailedBanner`,让用户更新支付方式。
+- 扣款恢复(订阅回到 `active/trialing`)时 flag **自动清除**。
 
-微信支付**没有顾客发起的拒付/争议**(Stripe 原文:"there is no dispute process that can result in a chargeback"),退款只能由商户在 Dashboard 手动发起,窗口 180 天、异步到账。全额退款照常触发 `charge.refunded` → 赞助行置 `refunded` 并下墙(与卡支付同一条路径)。
+> 为什么不在 app 里发阶梯催缴邮件?那会和厂商能力重复、且节奏脆弱。分工后 **dunning 不需要 Cron**——这也是 Cron 在开源版被定性为「清理任务参考实现」而非计费基建的原因(见 [cf-gotchas](/docs/platform/cf-gotchas))。
 
-## 计费事件钩子(`hooks.ts`)
+## 扩展一家新服务商
 
-`BillingHooks` 让你在状态跃迁后挂副作用(best-effort,失败不影响 webhook 返回 200):
+1. 在 `providers/<id>.ts` 实现 `PaymentProvider`(`parseWebhook` 收到完整 headers,不必像某些实现那样把多个头打包成 JSON 信封);
+2. 在 `providers/catalog.ts` 加一条元数据(显示名、logo、取消语义、所需密钥);
+3. 在 `providers/registry.ts` 的 `getBillingProvider` 加一个 case,并在 `hasRequiredSecrets` 补密钥门控;
+4. 建一个 `src/routes/api/webhooks/<id>.ts`,一行 `createWebhookHandler('<id>')`;
+5. 在 `plans.ts` 填上该家商品 ID,在 `BILLING_PROVIDERS` 里加上 id。
 
-- `onProActivated(ctx, via)` —— 例:发"Pro 已开通"邮件(默认已示范)。
-- `onProDeactivated(ctx, reason)` —— 例:回收已开通资源。
-- `onPaymentFailed(ctx)` —— 例:发 Slack 提醒。重试邮件别在这发(Stripe 已发)。
-
-编辑 `src/features/billing/hooks.ts` 接你自己的逻辑。
-
-## 本地开发
-
-留空 `STRIPE_*` key 时,计费入口优雅降级(无结账按钮)。测试 webhook 用 Stripe CLI:
-
-```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
-stripe trigger invoice.payment_failed   # 验证站内 banner 出现
-```
+UI 侧不需要任何改动:定价页 logo 条与结账页按钮都是从 `catalog.ts` 驱动的。

@@ -127,6 +127,13 @@
       "when": 1785331714270,
       "tag": "0017_far_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791613564817,
+      "tag": "0018_multi_provider_subscription",
+      "breakpoints": true
     }
   ]
 }

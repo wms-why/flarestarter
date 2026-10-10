@@ -83,7 +83,8 @@ npx wrangler secret put SENTRY_DSN --env production
 
 - `TURNSTILE_SITE_KEY`(Turnstile 站点 key)
 - `CF_ANALYTICS_TOKEN`(Web Analytics beacon token)
-- `STRIPE_PRICE_PRO_MONTHLY/YEARLY`(线上 price ID;写 `vars` 或 `secret put` 均可)
+- `BILLING_PROVIDERS`(启用哪些支付服务商,如 `stripe,waffo`;不设 = 四家全开,各家仍受密钥门控)
+- 商品 ID **不在环境变量里**,写在 `src/features/billing/plans.ts` 各档的 `productIds`,随代码一起部署
 - `BETTER_AUTH_URL` —— 设为你的线上域名,例如 `https://flarestarter.example.com`。首次只发
   workers.dev 时还没有自定义域,可先填可预测的 `https://flarestarter-production.<你的子域>.workers.dev`,
   之后绑定自定义域再改回来。
