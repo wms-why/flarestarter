@@ -49,6 +49,37 @@ test('Stripe key without webhook secret is an error', () => {
   expect(r.warnings).toEqual([])
 })
 
+// ── AUTH_EMAIL_VERIFY ──────────────────────────────────────────────────────
+test('a boolean-ish AUTH_EMAIL_VERIFY is accepted', () => {
+  for (const v of ['true', 'false', 'TRUE', '0', 'on', 'off', 'yes', 'no']) {
+    expect(validateEnv({ ...ok, AUTH_EMAIL_VERIFY: v }).errors).toEqual([])
+  }
+})
+
+test('an unset or blank AUTH_EMAIL_VERIFY stays silent', () => {
+  expect(validateEnv({ ...ok, RESEND_API_KEY: 're_x' })).toEqual({ errors: [], warnings: [] })
+  expect(validateEnv({ ...ok, RESEND_API_KEY: 're_x', AUTH_EMAIL_VERIFY: '' })).toEqual({
+    errors: [],
+    warnings: [],
+  })
+})
+
+test('a typo in AUTH_EMAIL_VERIFY fails startup instead of silently meaning "on"', () => {
+  const r = validateEnv({ ...ok, RESEND_API_KEY: 're_x', AUTH_EMAIL_VERIFY: 'flase' })
+  expect(r.errors).toEqual([expect.stringContaining('AUTH_EMAIL_VERIFY must be true or false')])
+})
+
+test('AUTH_EMAIL_VERIFY=true with no Resend warns — the switch cannot force it on', () => {
+  const r = validateEnv({ ...ok, AUTH_EMAIL_VERIFY: 'true' })
+  expect(r.errors).toEqual([])
+  expect(r.warnings.some((w) => w.includes('AUTH_EMAIL_VERIFY') && w.includes('RESEND_API_KEY'))).toBe(true)
+})
+
+test('AUTH_EMAIL_VERIFY=false without Resend is exactly what was asked for — no warning', () => {
+  const r = validateEnv({ ...ok, AUTH_EMAIL_VERIFY: 'false' })
+  expect(r).toEqual({ errors: [], warnings: [] })
+})
+
 test('assertEnvOnce keeps throwing on EVERY call while the env is invalid', async () => {
   // Regression: the memo flag must not be set before validation, or only the
   // first request per isolate fails and the rest serve with a broken env.

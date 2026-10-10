@@ -4,6 +4,12 @@ BETTER_AUTH_URL=http://localhost:3000
 # Email (Resend) — blank keeps mail local: captured to the console, never sent
 RESEND_API_KEY=
 EMAIL_FROM=FlareStarter <onboarding@resend.dev>
+# Email verification on sign-up. Unset/blank = true, same as `true`.
+# Set to false to let a new account straight into the dashboard (no inbox round
+# trip) — only sensible for a private/demo deploy, since anyone can then sign up
+# with someone else's address. `true` still needs RESEND_API_KEY above: without it
+# verification stays off, because the link would never be delivered.
+AUTH_EMAIL_VERIFY=
 # Optional: Resend audience id for the waitlist (and future newsletter).
 # Leave blank to disable audience sync — signups still save to D1.
 RESEND_AUDIENCE_ID=

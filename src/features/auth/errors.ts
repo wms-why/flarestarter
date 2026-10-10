@@ -6,6 +6,10 @@ export function mapAuthError(
   const map: Record<string, string> = {
     INVALID_EMAIL_OR_PASSWORD: 'auth.errors.invalidCredentials',
     USER_ALREADY_EXISTS: 'auth.errors.emailExists',
+    // better-auth answers a duplicate signup with the generic success response
+    // only while verification is enforced. With AUTH_EMAIL_VERIFY=false it fails
+    // outright under this longer code, which would otherwise show as "unknown".
+    USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'auth.errors.emailExists',
     EMAIL_NOT_VERIFIED: 'auth.errors.emailNotVerified',
     INVALID_TOKEN: 'auth.errors.invalidToken',
     PASSWORD_TOO_SHORT: 'auth.errors.weakPassword',

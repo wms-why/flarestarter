@@ -40,6 +40,11 @@ description: 了解 FlareStarter 需要配置哪些环境变量以及它们的�
       description: '发件人邮箱，例如 noreply@yourdomain.com',
       type: 'string',
     },
+    AUTH_EMAIL_VERIFY: {
+      description: '注册时是否强制邮箱验证。留空等同 true：用户须点验证邮件才能进后台。设为 false 则注册完直接进后台（不建议生产环境这么做）。留空/true 时仍需配置 RESEND_API_KEY，否则链接发不出去，验证会自动降级为关闭。',
+      type: 'string',
+      default: 'true',
+    },
   }}
 />
 

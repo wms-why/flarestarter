@@ -74,6 +74,14 @@ npx wrangler secret put SENTRY_DSN --env production
 </Callout>
 
 <Callout type="info">
+**想跳过邮箱验证?** 设公开值 `AUTH_EMAIL_VERIFY = "false"`(写在 `wrangler.jsonc` 的
+`vars` 里,不是 secret)。默认 `true`,即注册后须点验证邮件才能进后台;`false` 时 better-auth
+注册即签发 session,用户直接落到 `/app`。注意它**只能关不能开**:留空 `true` 但没配
+`RESEND_API_KEY` 时链接发不出去,验证照样降级为关闭,并打印一条 `[env] AUTH_EMAIL_VERIFY is on
+but RESEND_API_KEY is not set …` 告警。详情见 [认证](/docs/features/auth)。
+</Callout>
+
+<Callout type="info">
 不想逐条敲?`wrangler secret bulk` 支持一次性上传:把密钥写进一个 `KEY=VALUE` 文件
 (和 `.dev.vars` 同格式,**务必 gitignore**,别复用带 localhost 的 `.dev.vars`),然后
 `npx wrangler secret bulk .prod.vars --env production`(单次最多 100 个)。
@@ -83,6 +91,7 @@ npx wrangler secret put SENTRY_DSN --env production
 
 - `TURNSTILE_SITE_KEY`(Turnstile 站点 key)
 - `CF_ANALYTICS_TOKEN`(Web Analytics beacon token)
+- `AUTH_EMAIL_VERIFY`(是否强制注册邮箱验证;留空 = `true`,设 `false` 则注册完直接进后台)
 - `BILLING_PROVIDERS`(启用哪些支付服务商,如 `stripe,waffo`;不设 = 四家全开,各家仍受密钥门控)
 - 商品 ID **不在环境变量里**,写在 `src/features/billing/plans.ts` 各档的 `productIds`,随代码一起部署
 - `BETTER_AUTH_URL` —— 设为你的线上域名,例如 `https://flarestarter.example.com`。首次只发

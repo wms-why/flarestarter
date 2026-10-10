@@ -83,6 +83,8 @@
 		"BETTER_AUTH_URL": "",
 		"RESEND_API_KEY": "",
 		"EMAIL_FROM": "",
+		// Sign-up 邮箱验证开关：默认 true（需配 RESEND_API_KEY）；设为 false 则注册完直接进后台。
+		"AUTH_EMAIL_VERIFY": "",
 		"GOOGLE_CLIENT_ID": "",
 		"GOOGLE_CLIENT_SECRET": "",
 		"GITHUB_CLIENT_ID": "",

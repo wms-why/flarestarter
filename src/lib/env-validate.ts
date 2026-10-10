@@ -12,6 +12,7 @@
  * pure path stays importable where `cloudflare:workers` can't resolve.
  */
 import { z } from 'zod'
+import { parseBoolSwitch } from './bool-switch'
 
 /** Wrangler declares unset vars as "" — treat empty/whitespace as absent. */
 const optional = z.preprocess(
@@ -30,6 +31,9 @@ const envSchema = z
     RESEND_API_KEY: optional,
     RESEND_AUDIENCE_ID: optional,
     EMAIL_FROM: optional,
+    // Sign-up 邮箱验证开关，默认 true；"false" 让注册用户直接进后台。
+    // 值是校验过的布尔字面量，解析见 features/auth/email-verification.ts。
+    AUTH_EMAIL_VERIFY: optional,
     GOOGLE_CLIENT_ID: optional,
     GOOGLE_CLIENT_SECRET: optional,
     GITHUB_CLIENT_ID: optional,
@@ -95,6 +99,16 @@ const envSchema = z
         message: 'STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set',
       })
     }
+
+    // A mode switch is a boolean in string clothing, and a typo ("flase") must not
+    // read as the default "on" — that would flip a security control silently.
+    if (env.AUTH_EMAIL_VERIFY && parseBoolSwitch(env.AUTH_EMAIL_VERIFY) === null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_EMAIL_VERIFY'],
+        message: `AUTH_EMAIL_VERIFY must be true or false (got "${env.AUTH_EMAIL_VERIFY}")`,
+      })
+    }
   })
 
 /** Fully-validated env. Required fields are non-optional here. */
@@ -129,6 +143,17 @@ export function validateEnv(
   // (No "no product ids" warning: product ids moved into plans.ts, a TS module
   // this pure validator deliberately does not import. The registry reports an
   // unconfigured tier on the checkout page instead, where the operator sees it.)
+
+  // Asked for email verification but no way to deliver the mail: the switch is
+  // then inert and sign-ups go straight through (features/auth/email-verification.ts).
+  // That is a security decision nobody made on purpose — say so at boot.
+  if (parseBoolSwitch(raw.AUTH_EMAIL_VERIFY) === true && !has('RESEND_API_KEY')) {
+    warnings.push(
+      'AUTH_EMAIL_VERIFY is on but RESEND_API_KEY is not set — email verification will stay OFF ' +
+        'and verification emails cannot be delivered. Set RESEND_API_KEY (+ EMAIL_FROM) or set ' +
+        'AUTH_EMAIL_VERIFY=false if you meant to skip verification.',
+    )
+  }
 
   // A provider the operator explicitly listed, whose secrets are missing, hides
   // itself from the checkout page silently — worth hearing at boot rather than

@@ -7,8 +7,13 @@ import * as schema from './auth.schema'
 import { sendEmail } from '@/features/email/email.server'
 import { negotiateLocale, defaultLocale, type Locale } from '@/features/i18n/locale'
 import { isAdminEmail } from '@/features/admin/is-admin'
+import {
+  isEmailVerificationEnabled,
+  isEmailVerificationWanted,
+  type EmailVerificationEnv,
+} from './email-verification'
 
-export interface AuthEnv {
+export interface AuthEnv extends EmailVerificationEnv {
   BETTER_AUTH_SECRET: string
   BETTER_AUTH_URL: string
   GOOGLE_CLIENT_ID?: string
@@ -17,7 +22,6 @@ export interface AuthEnv {
   GITHUB_CLIENT_SECRET?: string
   ADMIN_EMAILS?: string
   TURNSTILE_SECRET_KEY?: string
-  RESEND_API_KEY?: string
 }
 
 /** Derive the user's preferred locale from an incoming Better-Auth hook request. */
@@ -43,22 +47,30 @@ function socialProviders(e: AuthEnv) {
 }
 
 export function createAuth(authEnv: AuthEnv, db: DB) {
+  // 两个信号，不是一个：AUTH_EMAIL_VERIFY=false（或缺 RESEND_API_KEY）时 better-auth 注册即
+  // 下发 session，用户直接进后台；「运营是否想要验证」单独留给发信。
+  const verificationWanted = isEmailVerificationWanted(authEnv)
+  const requireEmailVerification = isEmailVerificationEnabled(authEnv)
   return betterAuth({
     secret: authEnv.BETTER_AUTH_SECRET,
     baseURL: authEnv.BETTER_AUTH_URL,
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     emailAndPassword: {
       enabled: true,
-      // 只在真能发邮件时强制验证：缺 RESEND_API_KEY 时验证邮件只进日志（dev transport），
-      // 强制会把所有注册用户永久锁在「请先验证邮箱」外——遵循「key 缺失 → 功能关闭」约定。
-      requireEmailVerification: Boolean(authEnv.RESEND_API_KEY),
+      // 只在「运营想验」且「真能发邮件」时强制验证：缺 RESEND_API_KEY 时验证邮件只进日志
+      // （dev transport），强制会把所有注册用户永久锁在「请先验证邮箱」外——遵循「key 缺失 →
+      // 功能关闭」约定。AUTH_EMAIL_VERIFY 只能关、不能开，见 email-verification.ts。
+      requireEmailVerification,
       sendResetPassword: async ({ user, url }, request) => {
         const locale = localeFromRequest(request)
         await sendEmail({ to: user.email, locale, template: 'reset-password', data: { url } })
       },
     },
     emailVerification: {
-      sendOnSignUp: true,
+      // 只在运营明确关掉时才停发。**不能**跟着 requireEmailVerification 走：本地没配
+      // Resend 时验证照样要生成链接、打印到控制台（见 auth.mdx 的本地验证流程），
+      // 跟着 enforced 走会把那条流程一起关掉。只有 AUTH_EMAIL_VERIFY=false 才停发。
+      sendOnSignUp: verificationWanted,
       sendVerificationEmail: async ({ user, url }, request) => {
         const locale = localeFromRequest(request)
         await sendEmail({ to: user.email, locale, template: 'verify-email', data: { url } })

@@ -9,6 +9,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { redirect } from '@tanstack/react-router'
 import { env } from '@/lib/env'
 import { readUser } from './readUser.server'
+import { isEmailVerificationEnabled } from './email-verification'
 
 export const getOptionalUser = createServerFn({ method: 'GET' }).handler(
   async (): Promise<{ id: string; email: string } | null> => readUser(),
@@ -34,4 +35,13 @@ export const getEnabledSocialProviders = createServerFn({ method: 'GET' }).handl
 /** Public Turnstile site key for the auth forms, or null when bot protection is off. */
 export const getTurnstileSiteKey = createServerFn({ method: 'GET' }).handler(
   async (): Promise<string | null> => env.TURNSTILE_SITE_KEY || null,
+)
+
+/**
+ * Whether sign-up demands a verified email. The register form needs it to know
+ * where to send a fresh user: verification on → "check your inbox", off →
+ * straight into the dashboard (better-auth already returned a session).
+ */
+export const getEmailVerificationRequired = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<boolean> => isEmailVerificationEnabled(env),
 )

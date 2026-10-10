@@ -1,8 +1,12 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { User, Mail, Lock } from 'lucide-react'
 import { signUp } from '@/features/auth/auth.client'
-import { getEnabledSocialProviders, getTurnstileSiteKey } from '@/features/auth/middleware'
+import {
+  getEnabledSocialProviders,
+  getEmailVerificationRequired,
+  getTurnstileSiteKey,
+} from '@/features/auth/middleware'
 import { mapAuthError } from '@/features/auth/errors'
 import { useTurnstile, captchaHeaders } from '@/features/auth/components/turnstile'
 import { useTranslation } from '@/features/i18n/provider'
@@ -14,18 +18,20 @@ import { Button } from '@/components/ui/button'
 export const Route = createFileRoute('/{-$locale}/(auth)/register')({
   head: ({ params }) => authPageHead(params, 'registerTitle'),
   loader: async () => {
-    const [providers, turnstileSiteKey] = await Promise.all([
+    const [providers, turnstileSiteKey, emailVerifyRequired] = await Promise.all([
       getEnabledSocialProviders(),
       getTurnstileSiteKey(),
+      getEmailVerificationRequired(),
     ])
-    return { providers, turnstileSiteKey }
+    return { providers, turnstileSiteKey, emailVerifyRequired }
   },
   component: Register,
 })
 
 function Register() {
-  const { providers, turnstileSiteKey } = Route.useLoaderData()
+  const { providers, turnstileSiteKey, emailVerifyRequired } = Route.useLoaderData()
   const { t } = useTranslation()
+  const router = useRouter()
   const { token, enabled, widget, reset } = useTurnstile(turnstileSiteKey)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -45,7 +51,13 @@ function Register() {
       reset() // tokens are single-use
       return
     }
-    setSent(true)
+    // 验证关闭（AUTH_EMAIL_VERIFY=false）：better-auth 直接签发了 session，
+    // 别把人停在「去查收邮件」上，直接进后台。
+    if (emailVerifyRequired) {
+      setSent(true)
+    } else {
+      router.navigate({ to: '/{-$locale}/app' })
+    }
   }
 
   if (sent) {
