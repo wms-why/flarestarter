@@ -24,7 +24,7 @@
     "db:reset:local": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate:local && pnpm db:seed:local"
   },
   "dependencies": {
-    "@cloudflare/vite-plugin": "^1.26.0",
+    "@cloudflare/vite-plugin": "^1.63.1",
     "@orama/stopwords": "^3.1.18",
     "@orama/tokenizers": "^3.1.18",
     "@radix-ui/react-avatar": "^1.2.0",
@@ -58,7 +58,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.10",
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
@@ -73,7 +73,7 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.5",
-    "wrangler": "^4.95.0"
+    "wrangler": "4.149.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
