@@ -25,7 +25,8 @@ Turnstile bot 防护。
 
 - **同步到 Resend**:需同时设 `RESEND_API_KEY` + `RESEND_AUDIENCE_ID`。缺任一 →
   `addContact` 返回 `skipped`(报名仍进 D1,只是不同步)。这套 `addContact` 也为将来的
-  newsletter 复用。
+  newsletter 复用。**这一段只认 Resend,不看 `EMAIL_PROVIDER`** —— Flowmails v0.1 的 SDK
+  只有发信接口,没有受众概念,所以选 Flowmails 发信时同步自动跳过。
 - **导出**:管理员可在 `/admin/waitlist` 查看,并经 `/admin/waitlist.csv`
   (`src/routes/admin/waitlist[.]csv.ts`)导出 CSV。仅管理员可访问(见
   [基础 Admin](/docs/features/admin))。

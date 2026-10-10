@@ -4,7 +4,7 @@ Guide for AI coding agents (Claude Code, Codex, etc.) working in this repo.
 
 ## What this is
 
-FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudflare Workers**, with D1 (SQLite) + KV, Drizzle ORM, better-auth, Stripe, Resend, and Tailwind v4. Clone it and build your product on top.
+FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudflare Workers**, with D1 (SQLite) + KV, Drizzle ORM, better-auth, Stripe, Resend or Flowmails for email, and Tailwind v4. Clone it and build your product on top.
 
 ## Structure
 
@@ -19,7 +19,8 @@ FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudfla
 - **Env:** read from `@/lib/env` (re-exports `cloudflare:workers`). Never use `process.env`. In server-only modules read env **lazily** inside the function (`const { env } = await import('@/lib/env')`) so pure cores stay node-testable.
 - **i18n:** `src/features/i18n/dictionaries/en.ts` + `zh.ts` must be structurally identical (`zh` is typed `Dict = typeof en`). Add every key to both.
 - **DB:** Drizzle + D1 migrations — `pnpm db:generate` then `pnpm db:migrate:local`; register new tables in `src/db/schema.ts`.
-- **No mock, graceful degradation:** optional integrations (Resend, Stripe, Turnstile, Sentry, analytics) switch off when their env keys are absent — keep that behavior.
+- **No mock, graceful degradation:** optional integrations (email, Stripe, Turnstile, Sentry, analytics) switch off when their env keys are absent — keep that behavior.
+- **Email providers:** `EMAIL_PROVIDER` picks `resend` (default) or `flowmails`; only that provider's key (`RESEND_API_KEY` / `EMAIL_FLOWMAILS_APIKEY`) is read, and there is no fallback between them. `src/features/email/provider.ts` owns the selection, key lookup and `EMAIL_FROM` parsing — extend it there rather than branching at call sites.
 - **Routes:** after adding a route, run `pnpm build` before `pnpm typecheck` (the route tree is generated at build).
 - **Tests:** Vitest — node pool (`*.node.test.ts`) for pure logic, workers pool (`*.workers.test.ts`) for D1; the workers pool does NOT auto-apply migrations (hand-create tables in `beforeAll`).
 

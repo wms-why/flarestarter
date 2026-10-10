@@ -13,6 +13,22 @@
  */
 import { z } from 'zod'
 import { parseBoolSwitch } from './bool-switch'
+// Pure feature module (no cloudflare:workers) — safe to import here so env rules
+// and the send path agree on one definition of "which key belongs to which provider".
+import {
+  EMAIL_API_KEY_VAR,
+  EMAIL_PROVIDERS,
+  emailApiKeyFor,
+  parseFromHeader,
+  resolveEmailProviderId,
+  type EmailProviderId,
+} from '@/features/email/provider'
+
+/** Whether a configured `EMAIL_PROVIDER` string names a provider we can ship to. */
+function isEmailProviderId(v: string): v is EmailProviderId {
+  const id = v.trim().toLowerCase()
+  return (EMAIL_PROVIDERS as readonly string[]).includes(id)
+}
 
 /** Wrangler declares unset vars as "" — treat empty/whitespace as absent. */
 const optional = z.preprocess(
@@ -30,6 +46,10 @@ const envSchema = z
 
     RESEND_API_KEY: optional,
     RESEND_AUDIENCE_ID: optional,
+    // 邮件服务商开关：resend（默认）| flowmails。选 flowmails 时用
+    // EMAIL_FLOWMAILS_APIKEY；两者互不回落，见 features/email/provider.ts。
+    EMAIL_PROVIDER: optional,
+    EMAIL_FLOWMAILS_APIKEY: optional,
     EMAIL_FROM: optional,
     // Sign-up 邮箱验证开关，默认 true；"false" 让注册用户直接进后台。
     // 值是校验过的布尔字面量，解析见 features/auth/email-verification.ts。
@@ -109,6 +129,18 @@ const envSchema = z
         message: `AUTH_EMAIL_VERIFY must be true or false (got "${env.AUTH_EMAIL_VERIFY}")`,
       })
     }
+
+    // Same rule for the provider switch, and higher stakes: `EMAIL_PROVIDER=flowmail`
+    // resolving to the default "resend" would keep delivering verification mail
+    // through a different provider than the operator asked for — or, with no Resend
+    // key, silently downgrade to the console. Hard-fail instead.
+    if (env.EMAIL_PROVIDER && !isEmailProviderId(env.EMAIL_PROVIDER)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_PROVIDER'],
+        message: `EMAIL_PROVIDER must be one of ${EMAIL_PROVIDERS.join(', ')} (got "${env.EMAIL_PROVIDER}")`,
+      })
+    }
   })
 
 /** Fully-validated env. Required fields are non-optional here. */
@@ -146,13 +178,39 @@ export function validateEnv(
 
   // Asked for email verification but no way to deliver the mail: the switch is
   // then inert and sign-ups go straight through (features/auth/email-verification.ts).
-  // That is a security decision nobody made on purpose — say so at boot.
-  if (parseBoolSwitch(raw.AUTH_EMAIL_VERIFY) === true && !has('RESEND_API_KEY')) {
+  // That is a security decision nobody made on purpose — say so at boot. The key
+  // that matters is the one for the *selected* provider, hence the lookup.
+  const emailProvider = resolveEmailProviderId(raw)
+  const emailKeyVar = EMAIL_API_KEY_VAR[emailProvider]
+  if (parseBoolSwitch(raw.AUTH_EMAIL_VERIFY) === true && !emailApiKeyFor(emailProvider, raw)) {
     warnings.push(
-      'AUTH_EMAIL_VERIFY is on but RESEND_API_KEY is not set — email verification will stay OFF ' +
-        'and verification emails cannot be delivered. Set RESEND_API_KEY (+ EMAIL_FROM) or set ' +
-        'AUTH_EMAIL_VERIFY=false if you meant to skip verification.',
+      `AUTH_EMAIL_VERIFY is on but ${emailKeyVar} is not set — email verification will stay OFF ` +
+        'and verification emails cannot be delivered. Set ' +
+        `${emailKeyVar} (+ EMAIL_FROM) or set AUTH_EMAIL_VERIFY=false if you meant to skip verification.`,
     )
+  }
+
+  // An explicitly chosen provider that cannot send is the same silent hole as
+  // above, minus the AUTH_EMAIL_VERIFY hint. Only *explicit* choices are audited:
+  // an unset EMAIL_PROVIDER means "resend, if it happens to be configured".
+  if (has('EMAIL_PROVIDER') && isEmailProviderId(raw.EMAIL_PROVIDER!)) {
+    if (!emailApiKeyFor(emailProvider, raw)) {
+      warnings.push(
+        `EMAIL_PROVIDER is "${emailProvider}" but ${emailKeyVar} is not set — every email degrades to ` +
+          'the console capture transport and is never delivered. ' +
+          `Set ${emailKeyVar}, or set EMAIL_PROVIDER=resend to go back to Resend.`,
+      )
+    }
+    // Flowmails has no shared test sender: `from` must be a bare address on the
+    // domain the key is bound to (the backend answers 422 `from_domain_mismatch`
+    // otherwise), so an unset/garbled EMAIL_FROM leaves us nothing to send with.
+    if (emailProvider === 'flowmails' && !parseFromHeader(raw.EMAIL_FROM)) {
+      warnings.push(
+        'EMAIL_PROVIDER is "flowmails" but EMAIL_FROM is unset or not an address — Flowmails requires ' +
+          'a from address on the domain your API key is bound to (e.g. "Support <hi@yourdomain.com>"), ' +
+          'so emails degrade to the console capture transport.',
+      )
+    }
   }
 
   // A provider the operator explicitly listed, whose secrets are missing, hides
@@ -209,16 +267,17 @@ export async function assertEnvOnce(): Promise<void> {
   const { configuredProviders } = await import('@/features/billing/plans')
   const { errors, warnings } = validateEnv(raw, { configuredProviders: configuredProviders() })
   for (const w of warnings) console.warn(`[env] ${w}`)
-  // Deployed build (staging/prod) without Resend: email verification is turned
-  // off (auth.server.ts `requireEmailVerification`) and password-reset links
+  // Deployed build (staging/prod) without a mail provider key: email verification is
+  // turned off (auth.server.ts `requireEmailVerification`) and password-reset links
   // can't be delivered — an account-ownership gap. We degrade per the "missing
   // key → feature off" convention, but never silently on a real deployment.
   // `import.meta.env.PROD` is true for any built worker, false under `pnpm dev`.
-  if (import.meta.env.PROD && !raw.RESEND_API_KEY?.trim()) {
+  const deployProvider = resolveEmailProviderId(raw)
+  if (import.meta.env.PROD && !emailApiKeyFor(deployProvider, raw)) {
     console.warn(
-      '[env] ⚠️ RESEND_API_KEY is not set in a deployed build — email verification is OFF ' +
-        'and password-reset emails cannot be delivered. Set RESEND_API_KEY (+ EMAIL_FROM) ' +
-        'for any real production deployment.',
+      `[env] ⚠️ ${EMAIL_API_KEY_VAR[deployProvider]} is not set in a deployed build (EMAIL_PROVIDER=${deployProvider}) ` +
+        '— email verification is OFF and password-reset emails cannot be delivered. ' +
+        `Set ${EMAIL_API_KEY_VAR[deployProvider]} (+ EMAIL_FROM) for any real production deployment.`,
     )
   }
   if (errors.length) {

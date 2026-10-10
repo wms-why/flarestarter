@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.63.1",
+    "@flowmails/flowmails-sdk": "^0.1.1",
     "@orama/stopwords": "^3.1.18",
     "@orama/tokenizers": "^3.1.18",
     "@radix-ui/react-avatar": "^1.2.0",

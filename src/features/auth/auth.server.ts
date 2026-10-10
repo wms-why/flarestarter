@@ -47,7 +47,7 @@ function socialProviders(e: AuthEnv) {
 }
 
 export function createAuth(authEnv: AuthEnv, db: DB) {
-  // 两个信号，不是一个：AUTH_EMAIL_VERIFY=false（或缺 RESEND_API_KEY）时 better-auth 注册即
+  // 两个信号，不是一个：AUTH_EMAIL_VERIFY=false（或没配所选邮件服务商的 key）时 better-auth 注册即
   // 下发 session，用户直接进后台；「运营是否想要验证」单独留给发信。
   const verificationWanted = isEmailVerificationWanted(authEnv)
   const requireEmailVerification = isEmailVerificationEnabled(authEnv)
@@ -57,7 +57,7 @@ export function createAuth(authEnv: AuthEnv, db: DB) {
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     emailAndPassword: {
       enabled: true,
-      // 只在「运营想验」且「真能发邮件」时强制验证：缺 RESEND_API_KEY 时验证邮件只进日志
+      // 只在「运营想验」且「真能发邮件」时强制验证：没配邮件服务商的 key 时验证邮件只进日志
       // （dev transport），强制会把所有注册用户永久锁在「请先验证邮箱」外——遵循「key 缺失 →
       // 功能关闭」约定。AUTH_EMAIL_VERIFY 只能关、不能开，见 email-verification.ts。
       requireEmailVerification,
@@ -68,7 +68,7 @@ export function createAuth(authEnv: AuthEnv, db: DB) {
     },
     emailVerification: {
       // 只在运营明确关掉时才停发。**不能**跟着 requireEmailVerification 走：本地没配
-      // Resend 时验证照样要生成链接、打印到控制台（见 auth.mdx 的本地验证流程），
+      // 邮件服务商的 key 时验证照样要生成链接、打印到控制台（见 auth.mdx 的本地验证流程），
       // 跟着 enforced 走会把那条流程一起关掉。只有 AUTH_EMAIL_VERIFY=false 才停发。
       sendOnSignUp: verificationWanted,
       sendVerificationEmail: async ({ user, url }, request) => {

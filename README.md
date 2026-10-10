@@ -55,7 +55,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 | **Auth** | Email/password with mandatory verification, password reset, and account deletion via [better-auth](https://better-auth.com). Google & GitHub OAuth that gracefully hide themselves when their env vars are unset. Sessions use D1 as source of truth with a cookie cache. |
 | **Billing** | Four interchangeable payment providers — **Stripe**, **Waffo Pancake**, **Creem**, **PayPal** — each enabled by one `BILLING_PROVIDERS` switch and gated on its own secrets. Tiers, prices, feature bullets and per-provider product ids all live in one config file (`src/features/billing/plans.ts`); the pricing page renders from it and the checkout page shows the order summary before letting the buyer pick a provider. Config-driven tiers (free / Pro / Enterprise) with idempotent, provider-agnostic webhooks, plan-gated routes, and an in-app "update your payment method" banner on failed renewals (retry emails left to the vendor) — see [billing](https://flarestarter.com/docs/features/billing). |
 | **Storage** | [R2](https://developers.cloudflare.com/r2/) object storage with a working avatar upload (validated, streamed back through a serving route since R2 isn't public). Zero-config locally via miniflare. The reference for any file-upload feature — see [storage](https://flarestarter.com/docs/features/storage). |
-| **Email** | [Resend](https://resend.com) with string templates (React Email isn't usable on workerd). Missing API key? Emails are captured to the console so local dev never blocks. |
+| **Email** | [Resend](https://resend.com) or [Flowmails](https://flowmails.net) — pick one with `EMAIL_PROVIDER` — with string templates (React Email isn't usable on workerd). Missing API key? Emails are captured to the console so local dev never blocks. |
 | **Waitlist** | A complete pre-launch signup loop: a public signup page, Turnstile bot protection, an admin management page + CSV export, and automatic subscriber sync into a [Resend](https://resend.com) audience (gracefully skipped when unconfigured). |
 | **Changelog** | An in-app `/changelog` page — MDX-driven, per-locale, with a `published` flag — turning release notes into a real product page rather than just a `CHANGELOG.md` in the repo. |
 | **Sponsor** | A standalone `/sponsor` page demoing a real Stripe donation loop: **pure donation — unlocks nothing** (entitlement untouched). Both one-time and monthly are **amount-driven** (PWYW/custom amount, inline `price_data.recurring` — no pre-created Price IDs needed). One-time sponsorships also accept **WeChat Pay** (via Stripe's `wechat_pay` — no WeChat merchant account needed; presentment currency and a fixed FX rate live in config, and the USD equivalent is frozen at checkout — see the [billing docs](https://flarestarter.com/docs/features/billing)). GitHub thank-you **avatar wall grouped by amount tier**, with optional public message. Monthly subscriptions are cancellable via the Stripe portal. Webhook dispatched by metadata + idempotent recording. Degrades to a "not configured" state without a Stripe key. Customize via `src/features/sponsor/sponsor.config.ts` (amounts/tiers/toggles/thresholds) + i18n `sponsor.*` copy — no component edits needed. |
@@ -74,7 +74,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 - **[Cloudflare Workers](https://workers.cloudflare.com)** runtime, deployed via the `@cloudflare/vite-plugin`
 - **[D1](https://developers.cloudflare.com/d1/)** (SQLite) with **[Drizzle ORM](https://orm.drizzle.team)** + migrations
 - **[KV](https://developers.cloudflare.com/kv/)** for caching, **[R2](https://developers.cloudflare.com/r2/)** for object storage — wired end-to-end (validated upload + private serving route), with avatar upload as the reference
-- **[better-auth](https://better-auth.com)**, **[Stripe](https://stripe.com)**, **[Waffo](https://waffo.ai)**, **[Creem](https://creem.io)**, **[PayPal](https://paypal.com)**, **[Resend](https://resend.com)**
+- **[better-auth](https://better-auth.com)**, **[Stripe](https://stripe.com)**, **[Waffo](https://waffo.ai)**, **[Creem](https://creem.io)**, **[PayPal](https://paypal.com)**, **[Resend](https://resend.com)** or **[Flowmails](https://flowmails.net)** for email
 - **[Tailwind CSS v4](https://tailwindcss.com)**
 - **[Vitest](https://vitest.dev)** (Node unit tests + Workers/D1 integration tests via `@cloudflare/vitest-pool-workers`)
 
@@ -129,7 +129,7 @@ src/
     auth/          # better-auth setup, middleware, social buttons
     billing/       # 4 payment providers, tier config, entitlements, webhooks, hooks
     storage/       # R2 object storage: validated upload + serving route (avatar)
-    email/         # Resend client + string templates
+    email/         # Resend or Flowmails transport + string templates
     waitlist/      # signup page + Turnstile + admin mgmt + CSV export + Resend audience sync
     audience/      # Resend contacts/audience sync (reused by waitlist)
     changelog/     # MDX-driven in-app changelog page (/changelog)
@@ -155,7 +155,7 @@ drizzle/           # generated SQL migrations (repo root, sibling of src/)
 See [`.dev.vars.example`](.dev.vars.example) for the full list. Locally everything is optional and degrades gracefully. For production, the required secrets and how to set them are documented in [deploy](https://flarestarter.com/docs/getting-started/deploy):
 
 - `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (also drives canonical/sitemap origin) — **required**; validated at startup ([security](https://flarestarter.com/docs/platform/security))
-- `RESEND_API_KEY`, `EMAIL_FROM` (email; blank → console-captured)
+- `EMAIL_PROVIDER` (email provider — `resend` (default) or `flowmails`); `RESEND_API_KEY` / `EMAIL_FLOWMAILS_APIKEY` (only the selected provider's key is read — there is no fallback between them), `EMAIL_FROM` (blank → console-captured)
 - `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` (optional social login)
 - `BILLING_PROVIDERS` (billing provider roster — `stripe,waffo,creem,paypal`; unset = all, each still secret-gated); `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`; `WAFFO_*`, `CREEM_*`, `PAYPAL_*` for the others. **Product ids live in `src/features/billing/plans.ts`**, not in env. `STRIPE_WECHAT_PAY_ENABLED` (optional — set `false` to turn off WeChat Pay on the sponsor page)
 - `ADMIN_EMAILS`

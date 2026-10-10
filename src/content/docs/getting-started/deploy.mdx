@@ -49,7 +49,8 @@ R2 的绑定已在 `wrangler.jsonc` 配好,无需记 id(详见 [Storage](/docs/f
 ```bash
 # 必填 —— 会话加密密钥(openssl rand -base64 32 生成)
 npx wrangler secret put BETTER_AUTH_SECRET --env production
-# 邮件发送(Resend)—— 正式对外强烈建议配置,原因见下方 Callout
+# 邮件发送 —— 正式对外强烈建议配置,原因见下方 Callout
+# 默认 Resend;想换 Flowmails 见本节末尾
 npx wrangler secret put RESEND_API_KEY --env production
 npx wrangler secret put EMAIL_FROM --env production   # 发信地址,如 noreply@your-domain.com
 # 社交登录(可选,留空则按钮不显示)
@@ -67,18 +68,28 @@ npx wrangler secret put SENTRY_DSN --env production
 ```
 
 <Callout type="warn">
-`RESEND_API_KEY` 技术上可选(遵循「key 缺失 → 功能关闭」),但**正式生产强烈建议配置**:
+邮件服务商的 key 技术上可选(遵循「key 缺失 → 功能关闭」),但**正式生产强烈建议配置**:
 缺失时 `requireEmailVerification` 自动关闭——任何人可用他人邮箱注册、找回密码链接也发不出去
-(只进 `wrangler tail` 日志),存在账号归属风险。已部署构建缺 Resend 时,启动日志会打印
-`[env] ⚠️ RESEND_API_KEY is not set …` 告警提醒。配上后无需改代码,重新部署即自动恢复强验证。
+(只进 `wrangler tail` 日志),存在账号归属风险。已部署构建缺 key 时,启动日志会打印
+`[env] ⚠️ RESEND_API_KEY is not set …`(Flowmails 则打印 `EMAIL_FLOWMAILS_APIKEY`)告警提醒。
+配上后无需改代码,重新部署即自动恢复强验证。
+</Callout>
+
+<Callout type="info">
+**想改用 Flowmails 发信?** 三个变量就够:把 `EMAIL_PROVIDER`(公开值,写在 `wrangler.jsonc` 的
+`vars` 里)设成 `flowmails`,再 `npx wrangler secret put EMAIL_FLOWMAILS_APIKEY --env production`,
+并把 `EMAIL_FROM` 设成 **Flowmails 那个 key 所绑定域名下**的地址(可带显示名)。两个服务商的 key
+互不兜底:忘了配新 key 时邮件降级为控制台捕获,启动时会有告警,而不会退回 Resend。详见
+[邮件](/docs/features/email)。
 </Callout>
 
 <Callout type="info">
 **想跳过邮箱验证?** 设公开值 `AUTH_EMAIL_VERIFY = "false"`(写在 `wrangler.jsonc` 的
 `vars` 里,不是 secret)。默认 `true`,即注册后须点验证邮件才能进后台;`false` 时 better-auth
-注册即签发 session,用户直接落到 `/app`。注意它**只能关不能开**:留空 `true` 但没配
-`RESEND_API_KEY` 时链接发不出去,验证照样降级为关闭,并打印一条 `[env] AUTH_EMAIL_VERIFY is on
-but RESEND_API_KEY is not set …` 告警。详情见 [认证](/docs/features/auth)。
+注册即签发 session,用户直接落到 `/app`。注意它**只能关不能开**:留空 `true` 但没配**所选服务商**
+的 key 时链接发不出去,验证照样降级为关闭,并打印一条 `[env] AUTH_EMAIL_VERIFY is on
+but RESEND_API_KEY is not set …`(Flowmails 则为 `EMAIL_FLOWMAILS_APIKEY`)告警。详情见
+[认证](/docs/features/auth)。
 </Callout>
 
 <Callout type="info">
@@ -92,6 +103,7 @@ but RESEND_API_KEY is not set …` 告警。详情见 [认证](/docs/features/au
 - `TURNSTILE_SITE_KEY`(Turnstile 站点 key)
 - `CF_ANALYTICS_TOKEN`(Web Analytics beacon token)
 - `AUTH_EMAIL_VERIFY`(是否强制注册邮箱验证;留空 = `true`,设 `false` 则注册完直接进后台)
+- `EMAIL_PROVIDER`(邮件服务商:`resend` = 默认,`flowmails` = 走 Flowmails SDK)
 - `BILLING_PROVIDERS`(启用哪些支付服务商,如 `stripe,waffo`;不设 = 四家全开,各家仍受密钥门控)
 - 商品 ID **不在环境变量里**,写在 `src/features/billing/plans.ts` 各档的 `productIds`,随代码一起部署
 - `BETTER_AUTH_URL` —— 设为你的线上域名,例如 `https://flarestarter.example.com`。首次只发

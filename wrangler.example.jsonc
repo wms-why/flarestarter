@@ -83,7 +83,11 @@
 		"BETTER_AUTH_URL": "",
 		"RESEND_API_KEY": "",
 		"EMAIL_FROM": "",
-		// Sign-up 邮箱验证开关：默认 true（需配 RESEND_API_KEY）；设为 false 则注册完直接进后台。
+		// 邮件服务商开关：resend（默认）| flowmails。选 flowmails 时用
+		// EMAIL_FLOWMAILS_APIKEY，且 EMAIL_FROM 需是该 key 绑定域名下的地址。
+		"EMAIL_PROVIDER": "",
+		"EMAIL_FLOWMAILS_APIKEY": "",
+		// Sign-up 邮箱验证开关：默认 true（需配所选服务商的 key）；设为 false 则注册完直接进后台。
 		"AUTH_EMAIL_VERIFY": "",
 		"GOOGLE_CLIENT_ID": "",
 		"GOOGLE_CLIENT_SECRET": "",

@@ -2,21 +2,88 @@
 title: "邮件"
 ---
 
-事务性邮件走 [Resend](https://resend.com)。模板文案来自 i18n 字典,所以邮件天然双语。本地
-不配 key 时不会真发,链接直接打到控制台。
+事务性邮件支持两个服务商：**Resend**(默认)和 **Flowmails**。用 `EMAIL_PROVIDER` 切换，
+换服务商不用改代码。模板文案来自 i18n 字典，所以邮件天然双语。本地不配 key 时不会真发，
+链接直接打到控制台。
 
-> **fork 后你要改哪:** 改文案在 i18n 字典的 `email` 段;改邮件外观在
-> `src/features/email/templates.ts`;换发件地址改 `EMAIL_FROM`。
+> **fork 后你要改哪:** 换服务商改 `.dev.vars` / secret 里的 `EMAIL_PROVIDER`;改文案在 i18n
+> 字典的 `email` 段;改邮件外观在 `src/features/email/templates.ts`;改发件地址改 `EMAIL_FROM`。
+
+## 环境变量
+
+| 变量 | 作用 |
+|------|------|
+| `EMAIL_PROVIDER` | `resend`(默认)或 `flowmails`。写错(如 `flowmail`)会让**启动直接报错**,不会悄悄回落 |
+| `RESEND_API_KEY` | Resend 密钥,仅在 `EMAIL_PROVIDER=resend` 时读取 |
+| `EMAIL_FLOWMAILS_APIKEY` | Flowmails 密钥(`fm_…`),仅在 `EMAIL_PROVIDER=flowmails` 时读取 |
+| `EMAIL_FROM` | 发件人,`noreply@yourdomain.com` 或 `FlareStarter <noreply@yourdomain.com>` |
+
+**两个服务商的 key 不互相兜底。** 选了 `flowmails` 却只配了 `RESEND_API_KEY`,邮件不会退回
+Resend 真发(那等于把验证邮件发给一个你没选的服务商),而是降级到控制台捕获,并在启动时打印
+一条 warning。
 
 ## 工作原理
 
 统一入口是 `sendEmail(input)`(`src/features/email/email.server.ts`):
 
-- 有 `RESEND_API_KEY` → 用 Resend 真发;**留空 → 降级到 dev transport**,把邮件正文/链接
-  `console.log` 到终端(`src/features/email/dev-transport.ts`),本地绝不误发。
-- 发件人取 `EMAIL_FROM`,缺省为 `FlareStarter <onboarding@resend.dev>`。
+- 按 `EMAIL_PROVIDER` 选服务商 → 取**该服务商**的 key → 有 key 就真发;**没有 key → 降级到
+  dev transport**,把邮件正文/链接 `console.log` 到终端(`src/features/email/dev-transport.ts`),
+  本地绝不误发。
+- 服务商的选择与「能不能发」的判定都集中在 `src/features/email/provider.ts`(纯函数,node 可测),
+  注册时的邮箱验证开关复用同一套判定,所以切换服务商不需要改第二处。
+- 发件人取 `EMAIL_FROM`。Resend 缺省为 `FlareStarter <onboarding@resend.dev>`;Flowmails
+  **没有缺省**(见下)。
 - 正文由 `renderEmail`(`templates.ts`)渲染:根据 `locale` 从 i18n 字典 `dict.email` 取
   标题/正文/按钮文案,套进一个内联样式的 HTML 骨架,同时产出纯文本版。
+
+## 切到 Flowmails
+
+1. 在 [Flowmails 控制台](https://flowmails.net/dashboard/settings/api-keys)签发一个 API key
+   (`fm_…`)。key **绑定到你在 Flowmails 侧的一个域名**,之后的发件地址必须落在它上面。
+2. 配环境变量:
+
+   ```bash
+   # .dev.vars(本地)
+   EMAIL_PROVIDER=flowmails
+   EMAIL_FLOWMAILS_APIKEY=fm_…
+   EMAIL_FROM=FlareStarter <hi@yourdomain.com>
+   ```
+
+   ```bash
+   # 生产
+   npx wrangler secret put EMAIL_FLOWMAILS_APIKEY --env production
+   npx wrangler secret put EMAIL_FROM --env production
+   # EMAIL_PROVIDER 不是机密,写进 wrangler.jsonc 的 env.production.vars
+   ```
+
+3. 代码走官方 SDK [`@flowmails/flowmails-sdk`](https://www.npmjs.com/package/@flowmails/flowmails-sdk)
+   v0.1 的 `Flowmails` 类(见 `flowmailsTransport`),不用裸 `fetch` 自己拼 HTTP。
+
+### Flowmails 的三条硬约束
+
+- **`from` 必须是裸地址。** 后端正则校验,`FlareStarter <hi@x.dev>` 这种带显示名的写法会被拒。
+  所以 `EMAIL_FROM` 在发送前由 `parseFromHeader` 拆开:地址进 `from`,显示名进 `fromName`。
+  Resend 那条路不受影响 —— 它的 `from` 收整个 RFC 5322 串。
+- **`from` 必须落在 key 绑定的域名上。** 不在的话后端返回 422 `from_domain_mismatch`(SDK 抛
+  `ValidationError`)。这也是 Flowmails 没有「公共测试发件人」可用的原因:`EMAIL_FROM` 缺失或格式
+  不对时,邮件降级到控制台捕获并在启动时告警,而不是猜一个地址去发。
+- **重试由 SDK 负责,不要自己再包一层。** SDK 对 5xx / 408 / 429 自动退避重试(默认 2 次)。
+  但 `send` **不幂等**,调用方若在失败后重试,邮件可能重复发送。
+
+### 出错时看什么
+
+Flowmails SDK 直接抛类型化错误(`FlowmailsError` 及其子类),我们的 transport 原样透传、不做
+包装 —— 包一层就没法再用 `instanceof` 分支判断了:
+
+| 错误 | 含义 | 处理 |
+|------|------|------|
+| `AuthenticationError` | key 无效/被吊销 | 去控制台换一把 |
+| `ValidationError` | payload 被拒(如 `from_domain_mismatch`) | 看 `err.code` / `err.detail`,改配置,不要重试 |
+| `RateLimitError` / `UpstreamError` | 可重试的瞬时失败(SDK 已经重试过) | 交给队列/人工 |
+| `FlowmailsError` | 其它非 2xx | 记 `err.code` |
+
+Resend 那边不一样:它的 SDK 用 `{ error }` 返回失败而不抛异常,所以 `resendTransport` 显式检查
+并抛错 —— 否则一个域名没验证的 `EMAIL_FROM` 会让验证邮件静默消失,而 better-auth 以为已经发出去了。
 
 ## 内置模板
 
@@ -30,6 +97,9 @@ title: "邮件"
 
 ## 常见改动
 
+- **加一个服务商**:在 `src/features/email/provider.ts` 的 `EMAIL_PROVIDERS` / `EMAIL_API_KEY_VAR`
+  加一个 id → 在 `email.server.ts` 的 `createTransport` 里接上 → 同步 `env-validate.ts` 的 schema
+  和 `.dev.vars.example`。
 - **改文案**:编辑 `src/features/i18n/dictionaries/en.ts` 和 `zh.ts` 的 `email` 段
   (两个字典结构必须一致)。
 - **加一种邮件**:在 `SendEmailInput['template']` 加类型 → 在两个字典 `email` 段加对应
@@ -37,6 +107,12 @@ title: "邮件"
 - **换邮件外观**:改 `templates.ts` 里的 HTML 骨架(注意所有插值都要经 `esc()` 转义)。
 
 <Callout type="info">
-本地调试验证/重置流程,不必配 Resend —— 跑 `pnpm dev`,在终端里找 `[dev-email]`
+本地调试验证/重置流程,不必配任何服务商 —— 跑 `pnpm dev`,在终端里找 `[dev-email]`
 开头的行,把里面的链接复制到浏览器即可。
+</Callout>
+
+<Callout type="info">
+**候补名单的受众同步仍然只支持 Resend**(`RESEND_AUDIENCE_ID`,见
+[候补名单](/docs/features/waitlist)):Flowmails v0.1 的 SDK 只有发信接口,没有受众/联系人概念。
+选 Flowmails 时这段功能自动跳过,报名照常存进 D1。
 </Callout>

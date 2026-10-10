@@ -50,15 +50,17 @@ authClient.signUp.email({ email, password, name })
   重新部署即生效。
 
 <Callout type="warn">
-本地没配 `RESEND_API_KEY` 时,验证邮件不会真发 —— 链接会**打印到 `pnpm dev` 的
+本地没配邮件服务商的 key 时,验证邮件不会真发 —— 链接会**打印到 `pnpm dev` 的
 控制台**,复制到浏览器即可完成验证。见 [邮件](/docs/features/email)。
 </Callout>
 
 <Callout type="info">
 **`AUTH_EMAIL_VERIFY` 只能关、不能开。** 判定条件是
-`AUTH_EMAIL_VERIFY !== false && RESEND_API_KEY`:不设 = 默认开,但缺 `RESEND_API_KEY` 时
+`AUTH_EMAIL_VERIFY !== false && 所选服务商的 key`:不设 = 默认开,但没配 key 时
 链接根本发不出去,强制验证会把每个新用户永久锁在门外,于是照样降级为关闭(并有启动告警)。
-`AUTH_EMAIL_VERIFY=true` 却没配 Resend 时,`validateEnv` 会打印一条 warning 提醒这个开关是空转的。
+key 取决于 `EMAIL_PROVIDER`(`resend` → `RESEND_API_KEY`,`flowmails` →
+`EMAIL_FLOWMAILS_APIKEY`);切换服务商时,这里跟着换,不用改代码。
+`AUTH_EMAIL_VERIFY=true` 却没配 key 时,`validateEnv` 会打印一条 warning 提醒这个开关是空转的。
 值只接受 `true`/`false`(也认 `1/0`、`on/off`、`yes/no`),写错(如 `flase`)会让**启动直接报错**,
 而不是悄悄按默认值跑。
 </Callout>

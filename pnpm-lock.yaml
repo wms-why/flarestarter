@@ -194,6 +194,9 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: ^1.63.1
         version: 1.63.1(@types/node@22.20.0)(vite@8.0.14(@types/node@22.20.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4))(wrangler@4.149.0(@types/node@22.20.0))
+      '@flowmails/flowmails-sdk':
+        specifier: ^0.1.1
+        version: 0.1.1
       '@orama/stopwords':
         specifier: ^3.1.18
         version: 3.1.18
@@ -1337,6 +1340,10 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@flowmails/flowmails-sdk@0.1.1':
+    resolution: {integrity: sha512-CTymJif3DfxGltvPCO+4PC01izImYloGOfR9AR3pIjBaD03ESGBmnU8Y+uZrmPxAZRNoYVVSU09KYJouAvWJOA==}
+    engines: {node: '>=18.0.0'}
 
   '@fuma-translate/react@1.0.2':
     resolution: {integrity: sha512-uOiOtBx3nRXR8Nu1GzBf1tApgF1FErDBTHxRIAQeyQdyOoZbrNRN6H4kDCWObY4qyGeGbHydG0DHzgeUgFDMIw==}
@@ -6262,6 +6269,8 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@flowmails/flowmails-sdk@0.1.1': {}
 
   '@fuma-translate/react@1.0.2(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:

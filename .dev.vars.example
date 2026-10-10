@@ -1,14 +1,24 @@
 # Better-Auth
 BETTER_AUTH_SECRET=replace-with-32+char-random-string
 BETTER_AUTH_URL=http://localhost:3000
-# Email (Resend) — blank keeps mail local: captured to the console, never sent
+# Email — blank keys keep mail local: captured to the console, never sent.
+# Which provider sends is EMAIL_PROVIDER: `resend` (default) or `flowmails`.
+# Only the selected provider's key is read — there is no fallback from one to
+# the other, so a half-finished switch degrades to the console instead of
+# quietly mailing through the wrong service.
+EMAIL_PROVIDER=
 RESEND_API_KEY=
+EMAIL_FLOWMAILS_APIKEY=
+# Sender. Either a bare address or `Display Name <address>`; the name is split
+# off for providers that take it separately (Flowmails). Flowmails requires an
+# address on the domain its key is bound to — anything else is rejected.
 EMAIL_FROM=FlareStarter <onboarding@resend.dev>
 # Email verification on sign-up. Unset/blank = true, same as `true`.
 # Set to false to let a new account straight into the dashboard (no inbox round
 # trip) — only sensible for a private/demo deploy, since anyone can then sign up
-# with someone else's address. `true` still needs RESEND_API_KEY above: without it
-# verification stays off, because the link would never be delivered.
+# with someone else's address. `true` still needs the selected provider's key
+# above: without it verification stays off, because the link would never be
+# delivered.
 AUTH_EMAIL_VERIFY=
 # Optional: Resend audience id for the waitlist (and future newsletter).
 # Leave blank to disable audience sync — signups still save to D1.

@@ -59,3 +59,20 @@ test('intent ignores Resend; only an explicit off withdraws it', () => {
   expect(isEmailVerificationWanted({ AUTH_EMAIL_VERIFY: 'false' })).toBe(false)
   expect(isEmailVerificationWanted({ AUTH_EMAIL_VERIFY: 'off' })).toBe(false)
 })
+
+// ── EMAIL_PROVIDER ──────────────────────────────────────────────────────────
+// Enforcement follows the *selected* provider's key. A half-done switch (flowmails
+// chosen, only a Resend key present) must behave like "no key at all" — turning
+// verification off — rather than quietly delivering through the other service.
+test('flowmails selected + its key = verification on', () => {
+  expect(isEmailVerificationEnabled({ EMAIL_PROVIDER: 'flowmails', EMAIL_FLOWMAILS_APIKEY: 'fm_x' })).toBe(true)
+})
+
+test('a half-finished switch cannot deliver, so verification stays off', () => {
+  expect(isEmailVerificationEnabled({ EMAIL_PROVIDER: 'flowmails', RESEND_API_KEY: 're_x' })).toBe(false)
+  expect(isEmailVerificationEnabled({ EMAIL_PROVIDER: 'flowmails', EMAIL_FLOWMAILS_APIKEY: '  ' })).toBe(false)
+})
+
+test('switching back to resend keeps working with the resend key alone', () => {
+  expect(isEmailVerificationEnabled({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_x' })).toBe(true)
+})

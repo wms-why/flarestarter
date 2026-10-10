@@ -79,7 +79,8 @@ openssl rand -base64 32
 
 - **社交登录**:`GOOGLE_CLIENT_ID/SECRET`、`GITHUB_CLIENT_ID/SECRET` —— 留空则对应登录
   按钮不显示,填入后自动出现。
-- **邮件发送**:`RESEND_API_KEY` 留空时,验证/重置密码邮件的链接会**直接打印到
+- **邮件发送**:默认走 Resend(`RESEND_API_KEY`),也可设 `EMAIL_PROVIDER=flowmails` +
+  `EMAIL_FLOWMAILS_APIKEY` 改走 Flowmails;key 留空时,验证/重置密码邮件的链接会**直接打印到
   `pnpm dev` 的控制台**(不真发),本地调试足够。详见 [邮件](/docs/features/email)。
 - **计费**:在 Stripe Dashboard(测试模式)建一个 Pro 产品 + 月/年两个 price,把 price ID
   填进 [`src/features/billing/plans.ts`](https://github.com/flarestarter/flarestarter/blob/main/src/features/billing/plans.ts)

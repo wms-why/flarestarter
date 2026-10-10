@@ -28,20 +28,29 @@ description: 了解 FlareStarter 需要配置哪些环境变量以及它们的�
 ## 数据库 (D1)
 无需在此处配置数据库账号密码。Cloudflare D1 使用绑定的 Database ID，详情请见 [部署到 Cloudflare](/docs/getting-started/deploy)。
 
-## 邮件 (Resend)
-用于发送登录验证码或营销邮件。
+## 邮件 (Resend / Flowmails)
+用于发送登录验证码或营销邮件。`EMAIL_PROVIDER` 选服务商(默认 `resend`),两个服务商的 key 互不兜底 —— 选了 flowmails 却只配了 Resend key,邮件会降级为控制台捕获,而不是换个服务商真发。详见 [邮件](/docs/features/email)。
 <TypeTable
   type={{
+    EMAIL_PROVIDER: {
+      description: '邮件服务商:resend(默认)或 flowmails。写错的值会让启动直接报错,不会悄悄回落。',
+      type: 'string',
+      default: 'resend',
+    },
     RESEND_API_KEY: {
-      description: '从 Resend Dashboard 获取的 API 密钥',
+      description: '从 Resend Dashboard 获取的 API 密钥,仅在 EMAIL_PROVIDER=resend 时读取',
+      type: 'string',
+    },
+    EMAIL_FLOWMAILS_APIKEY: {
+      description: 'Flowmails 控制台签发的 API 密钥(fm_…),仅在 EMAIL_PROVIDER=flowmails 时读取。key 绑定一个域名,EMAIL_FROM 必须落在该域名上,否则发信返回 422 from_domain_mismatch。',
       type: 'string',
     },
     EMAIL_FROM: {
-      description: '发件人邮箱，例如 noreply@yourdomain.com',
+      description: '发件人邮箱,例如 noreply@yourdomain.com;也可写成 `FlareStarter <noreply@yourdomain.com>`,显示名会单独传给 Flowmails',
       type: 'string',
     },
     AUTH_EMAIL_VERIFY: {
-      description: '注册时是否强制邮箱验证。留空等同 true：用户须点验证邮件才能进后台。设为 false 则注册完直接进后台（不建议生产环境这么做）。留空/true 时仍需配置 RESEND_API_KEY，否则链接发不出去，验证会自动降级为关闭。',
+      description: '注册时是否强制邮箱验证。留空等同 true:用户须点验证邮件才能进后台。设为 false 则注册完直接进后台(不建议生产环境这么做)。留空/true 时仍需配置所选服务商的 API 密钥,否则链接发不出去,验证会自动降级为关闭。',
       type: 'string',
       default: 'true',
     },

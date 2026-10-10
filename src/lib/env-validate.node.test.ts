@@ -80,6 +80,55 @@ test('AUTH_EMAIL_VERIFY=false without Resend is exactly what was asked for — n
   expect(r).toEqual({ errors: [], warnings: [] })
 })
 
+// ── EMAIL_PROVIDER ──────────────────────────────────────────────────────────
+// A typo here is worse than a typo in a boolean: it would keep delivering mail
+// through a service the operator did not pick, so it fails startup outright.
+const FLOWMAILS_OK = { EMAIL_PROVIDER: 'flowmails', EMAIL_FLOWMAILS_APIKEY: 'fm_x', EMAIL_FROM: 'Support <hi@acme.dev>' }
+
+test('both provider ids are accepted, in any casing', () => {
+  expect(validateEnv({ ...ok, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_x' }).errors).toEqual([])
+  expect(validateEnv({ ...ok, ...FLOWMAILS_OK }).errors).toEqual([])
+  expect(validateEnv({ ...ok, ...FLOWMAILS_OK, EMAIL_PROVIDER: ' FlowMails ' }).errors).toEqual([])
+})
+
+test('a typo in EMAIL_PROVIDER is a hard error, not a silent fallback to resend', () => {
+  const r = validateEnv({ ...ok, EMAIL_PROVIDER: 'flowmail' })
+  expect(r.errors.join()).toContain('EMAIL_PROVIDER must be one of resend, flowmails')
+})
+
+test('a fully configured flowmails install is clean', () => {
+  expect(validateEnv({ ...ok, ...FLOWMAILS_OK })).toEqual({ errors: [], warnings: [] })
+})
+
+test('an explicitly chosen provider with no key warns — every mail degrades to the console', () => {
+  const r = validateEnv({ ...ok, EMAIL_PROVIDER: 'flowmails', EMAIL_FROM: 'hi@acme.dev' })
+  expect(r.errors).toEqual([])
+  expect(r.warnings.some((w) => w.includes('EMAIL_PROVIDER') && w.includes('EMAIL_FLOWMAILS_APIKEY'))).toBe(true)
+})
+
+test('flowmails without EMAIL_FROM warns — its key is bound to one domain, so there is no shared test sender', () => {
+  const r = validateEnv({ ...ok, EMAIL_PROVIDER: 'flowmails', EMAIL_FLOWMAILS_APIKEY: 'fm_x' })
+  expect(r.errors).toEqual([])
+  expect(r.warnings.some((w) => w.includes('EMAIL_FROM'))).toBe(true)
+  // A garbage sender is the same failure, not a sendable address.
+  expect(validateEnv({ ...ok, EMAIL_PROVIDER: 'flowmails', EMAIL_FLOWMAILS_APIKEY: 'fm_x', EMAIL_FROM: 'Acme' }).warnings
+    .some((w) => w.includes('EMAIL_FROM'))).toBe(true)
+})
+
+test('the AUTH_EMAIL_VERIFY warning names the key of the selected provider', () => {
+  const r = validateEnv({ ...ok, AUTH_EMAIL_VERIFY: 'true', EMAIL_PROVIDER: 'flowmails', EMAIL_FROM: 'hi@acme.dev' })
+  expect(r.warnings.some((w) => w.includes('AUTH_EMAIL_VERIFY') && w.includes('EMAIL_FLOWMAILS_APIKEY'))).toBe(true)
+  // A Resend key does not satisfy a flowmails deployment.
+  const onlyResend = validateEnv({ ...ok, AUTH_EMAIL_VERIFY: 'true', EMAIL_PROVIDER: 'flowmails', EMAIL_FROM: 'hi@acme.dev', RESEND_API_KEY: 're_x' })
+  expect(onlyResend.warnings.some((w) => w.includes('EMAIL_FLOWMAILS_APIKEY'))).toBe(true)
+})
+
+test('an unset EMAIL_PROVIDER stays silent about flowmails even with its key present', () => {
+  // Not selecting flowmails is a legitimate Resend deployment.
+  expect(validateEnv({ ...ok, RESEND_API_KEY: 're_x', EMAIL_FLOWMAILS_APIKEY: 'fm_x' }))
+    .toEqual({ errors: [], warnings: [] })
+})
+
 test('assertEnvOnce keeps throwing on EVERY call while the env is invalid', async () => {
   // Regression: the memo flag must not be set before validation, or only the
   // first request per isolate fails and the rest serve with a broken env.
