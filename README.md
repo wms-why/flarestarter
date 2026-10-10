@@ -81,7 +81,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 ## Prerequisites
 
 - **Node.js** >= 22 (recommended to use [nvm](https://github.com/nvm-sh/nvm) or [volta](https://volta.sh/))
-- **pnpm** >= 9
+- **pnpm** >= 12 (exact version pinned by the `packageManager` field)
 - A **Cloudflare** account (free tier is enough to start)
 - `wrangler` CLI (already installed as a dev dependency, no need to install globally)
 

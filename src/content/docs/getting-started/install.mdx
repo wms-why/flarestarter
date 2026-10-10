@@ -14,12 +14,14 @@ Cloudflare 账号** —— 所有外部服务(邮件、支付、验证码……)
   ```bash
   node -v    # 输出应 ≥ v20
   ```
-- **pnpm** —— 本项目使用的包管理器。Node 自带的 corepack 可以一键启用:
+- **pnpm** —— 本项目使用的包管理器,版本由 `package.json` 的 `packageManager` 字段锁定为
+  **12.6.0**。Node 自带的 corepack 可以一键启用,进入本目录后它会自动切到锁定版本:
   ```bash
   corepack enable pnpm
-  pnpm -v     # 输出版本号即成功
+  pnpm -v     # 在本目录内输出 12.6.0 即成功
   ```
-  也可以用 `npm install -g pnpm` 全局安装,或参考 [pnpm.io/installation](https://pnpm.io/installation)。
+  任何全局 pnpm(哪怕是 11.x)在进入本目录时也会自动改用锁定版本。也可以用
+  `npm install -g pnpm` 全局安装,或参考 [pnpm.io/installation](https://pnpm.io/installation)。
 - **Git** —— 用来拉取代码。到 [git-scm.com](https://git-scm.com) 下载安装,验证:
   ```bash
   git --version

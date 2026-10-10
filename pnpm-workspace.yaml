@@ -1,0 +1,14 @@
+# pnpm reads its settings from this file (the `pnpm` field in package.json was
+# removed in pnpm v11). `allowBuilds` replaces the old `onlyBuiltDependencies`
+# list: every dependency that ships a build script must be explicitly allowed
+# here, otherwise `pnpm install` fails with ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  lightningcss: true
+  sharp: true
+  workerd: true
+  # Optional peer of better-auth / drizzle-orm. This project uses the Drizzle
+  # adapter, so Prisma's `prisma generate` postinstall is dead weight — reviewed
+  # and explicitly denied (under pnpm 9 it was silently skipped).
+  '@prisma/client': false

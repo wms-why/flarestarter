@@ -81,7 +81,7 @@ FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实�
 ## 前置依赖 (Prerequisites)
 
 - **Node.js** >= 22 (推荐使用 [nvm](https://github.com/nvm-sh/nvm) 或 [volta](https://volta.sh/))
-- **pnpm** >= 9
+- **pnpm** >= 12（精确版本由 `packageManager` 字段锁定）
 - 一个 **Cloudflare** 账号（免费档足够起步）
 - `wrangler` CLI（已作为项目 dev 依赖安装，无需全局安装）
 
