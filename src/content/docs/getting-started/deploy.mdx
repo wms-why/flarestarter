@@ -109,6 +109,12 @@ but RESEND_API_KEY is not set …`(Flowmails 则为 `EMAIL_FLOWMAILS_APIKEY`)告
   workers.dev 时还没有自定义域,可先填可预测的 `https://flarestarter-production.<你的子域>.workers.dev`,
   之后绑定自定义域再改回来。
 
+<Callout type="info">
+**想加 Google Analytics 4?** `GA_MEASUREMENT_ID` 是**构建期**变量,不走 wrangler:在构建环境里
+设好再跑 `pnpm build`(CI 里设环境变量,或写进 `.env.production`),留空则**打包不集成**——产物里
+没有 GA 代码,生产 CSP 也不会放行 Google 的域名。详见 [可观测性](/docs/platform/observability)。
+</Callout>
+
 <Callout type="warn">
 `BETTER_AUTH_URL` **同时决定 canonical URL 与 sitemap origin**,必须设成真实域名,否则
 SEO 输出的链接会错(详见 [国际化与 SEO](/docs/features/i18n))。

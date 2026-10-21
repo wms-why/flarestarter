@@ -140,6 +140,7 @@ src/
     admin/         # admin 插件接线 + 仪表盘
     maintenance/   # Cron 定时清理任务 (过期 session/token/限流行)
     theme/         # 暗色优先的主题切换
+    analytics/     # 可选的 Google Analytics 4（构建期开关，默认不集成）
   routes/
     {-$locale}/    # 带可选语言前缀的页面：/、/zh、/admin、/app …
     api/, docs/, docs-md/, llms.txt, robots.txt, sitemap.xml   # 顶级路由（locale 组之外）
@@ -159,6 +160,7 @@ drizzle/           # 生成的 SQL 迁移文件（仓库根，与 src/ 同级）
 - `ADMIN_EMAILS`（管理员邮箱）。
 - `TURNSTILE_SITE_KEY`、`TURNSTILE_SECRET_KEY`（可选的 bot 防护——见 [安全文档](https://flarestarter.com/docs/platform/security)）。
 - `SENTRY_DSN`（可选的服务端错误上报——见 [可观测性文档](https://flarestarter.com/docs/platform/observability)）。Web Analytics 不需要环境变量：在 Cloudflare 控制台开启后，beacon 由边缘自动注入。
+- `GA_MEASUREMENT_ID`（可选的**构建期** Google Analytics 4 衡量 ID——见 [可观测性文档](https://flarestarter.com/docs/platform/observability)）。留空 = 打包不集成，产物里没有 GA 代码。它从 `.env` / CI 环境变量读取（见 [`.env.example`](.env.example)），**不**走 `.dev.vars`。
 
 **优雅降级机制**：每个可选集成均支持优雅降级。如果留空对应的 key，该功能即自动关闭。启动期的环境变量校验会拦截错误的配置（如缺失必填项、OAuth/Turnstile 配置不全等），并触发快速失败 (fail-fast)，避免在运行时产生意料之外的错误。
 

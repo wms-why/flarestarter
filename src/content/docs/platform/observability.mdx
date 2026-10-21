@@ -3,6 +3,7 @@ title: "可观测性:分析与错误上报"
 ---
 
 两项都是**可选**、互不影响:分析在 Cloudflare 侧开关,错误上报用 env 控制、留空即关闭。
+加上可选的 Google Analytics 4(构建期开关,留空即不集成)。
 
 ## Cloudflare Web Analytics(零配置)
 
@@ -18,6 +19,41 @@ title: "可观测性:分析与错误上报"
 - **没开**:Cloudflare 侧不启用就没有任何分析,应用无感知。
 - **前提**:自动注入是 **zone 级**的——只有走该 zone 代理的自定义域名会被注入;直接访问
   `*.workers.dev` 地址不会有 beacon(统计也会随之缺失)。
+
+## Google Analytics 4(`GA_MEASUREMENT_ID`)
+
+需要 Google Ads 受众、关键事件(转化)或 GA4 级别的报表时再开。Cloudflare Web Analytics
+已经覆盖了「流量 + 体验指标」这一层,两者可以并存。
+
+- **怎么开**:GA4 后台 → 管理 → 数据流 → **Web** → 复制「衡量 ID」(形如 `G-XXXXXXXXXX`)。
+- **在哪配**:**构建期**变量,不是运行时 env。写进 `.env`(本地,参考
+  [`.env.example`](https://github.com/flarestarter/flarestarter/blob/main/.env.example))或 CI 的
+  环境变量(生产),**不要**写进 `.dev.vars` / `wrangler secret`——Cloudflare 的 var 要等 worker
+  跑起来才存在,那时产物早已定型,「没配就不集成」就落空了。
+- **没配会怎样**:**打包不集成**。构建脚本(`vite.config.ts`)把 GA 加载器换成空实现,GA 代码
+  根本不会进入模块图——产物里搜不到 `googletagmanager`,浏览器也不会向 Google 发一个请求;
+  生产 CSP 里同样不会放行 Google 的域名(连「理论上能通」都不留)。
+- **原理**:客户端组件(`src/features/analytics/`)在路由变化时上报 `page_view`。GA4 不认识 SPA
+  路由,所以关掉自动上报(`send_page_view: false`),由应用自己发,避免首个页面被统计两次。
+- **CSP**:开启后自动放行 `www.googletagmanager.com`(脚本)与
+  `*.google-analytics.com` / `*.google.com` / `analytics.google.com`(上报),清单见
+  `src/features/analytics/csp-hosts.ts`(依据 [Google 官方 CSP 指南](https://developers.google.com/tag-platform/security/guides/csp))。
+
+### 范围与限制(诚实说明)
+
+- **纯客户端**:浏览器直接上报。服务端事件(Measurement Protocol / Conversion API)模板**没有**
+  封装——它需要 API secret、`client_id` 串联等,不是模板替你拍板的事。
+- **没有接 CMP / Consent Mode**:模板不弹 cookie 横幅,也没实现 Consent Mode v2。在 EEA
+  (含欧盟)用 GA4 时,Google 要求实现 Consent Mode v2 才能用广告受众;需要的话在
+  `src/features/analytics/ga-loader.ts` 的 `gtag('config', …)` **之前**加一行
+  `gtag('consent', 'default', { analytics_storage: 'denied', … })`,再接上你自己的 CMP
+  (注意:不要把 GA 标签挡在横幅后面,否则会丢数据)。
+- **IP**:GA4 会用 IP 推导国家/城市,但**不记录 IP 本身**;GA4 也没有旧版 UA 的「IP 匿名化」
+  开关。另外 GA 会采集页面 URL 与标题,**别把 PII 放进 URL**。
+- **域名**:GA4 不要求自定义域名,`*.workers.dev` 也能上报;但那会把流量拆成多个 hostname
+  维度。另外注意 Cloudflare Web Analytics 的自动注入只在走 zone 代理的域名上生效。
+- **缓存**:若之后给 HTML 加 `Cache-Control: public, no-transform`,Cloudflare 边缘的
+  HTML 改写会失效(这主要影响 Web Analytics 的 beacon 注入)。
 
 ## Sentry 错误上报(`SENTRY_DSN`)
 

@@ -4,6 +4,7 @@ import { getPreferences } from '@/server/preferences'
 import { getOptionalUser } from '@/features/auth/middleware'
 import { Toaster } from '@/components/ui/sonner'
 import { useResolvedTheme } from '@/features/theme/use-resolved-theme'
+import { GoogleAnalytics } from '@/features/analytics/google-analytics'
 import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -70,6 +71,9 @@ function RootComponent() {
         <Toaster theme={resolvedTheme} />
         {/* Cloudflare Web Analytics needs no markup here: Cloudflare injects the
          * beacon script at the edge for proxied HTML responses. */}
+        {/* Google Analytics 4 renders nothing and loads no script unless the
+         * build was configured with GA_MEASUREMENT_ID (see lib/analytics.ts). */}
+        <GoogleAnalytics />
       </body>
     </html>
   )

@@ -8,7 +8,7 @@ FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudfla
 
 ## Structure
 
-- `src/features/*` — vertical feature slices, each self-contained (schema / server fns / actions / components): `admin`, `audience`, `auth`, `billing`, `changelog`, `docs`, `email`, `i18n`, `maintenance`, `notifications`, `seo`, `storage`, `theme`, `waitlist`.
+- `src/features/*` — vertical feature slices, each self-contained (schema / server fns / actions / components): `admin`, `analytics`, `audience`, `auth`, `billing`, `changelog`, `docs`, `email`, `i18n`, `maintenance`, `notifications`, `seo`, `storage`, `theme`, `waitlist`.
 - `src/routes/{-$locale}/` — file-based routes with an optional locale prefix (`/` = en, `/zh` = zh). Top-level routes (`api`, `sitemap`, `robots`, `docs`) live outside the locale group.
 - `src/components/` — `ui/` primitives + `marketing/` landing + `app/` shell.
 - `src/db/` — Drizzle client + `schema.ts` barrel; tables in `src/db/tables/` and feature `*.schema.ts`.
@@ -16,10 +16,10 @@ FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudfla
 
 ## Conventions
 
-- **Env:** read from `@/lib/env` (re-exports `cloudflare:workers`). Never use `process.env`. In server-only modules read env **lazily** inside the function (`const { env } = await import('@/lib/env')`) so pure cores stay node-testable.
+- **Env:** read from `@/lib/env` (re-exports `cloudflare:workers`). Never use `process.env`. In server-only modules read env **lazily** inside the function (`const { env } = await import('@/lib/env')`) so pure cores stay node-testable. Build-time values (e.g. `GA_MEASUREMENT_ID`) are a different thing: they are inlined by Vite via `define` in `vite.config.ts` and read from `.env` / CI env — never from the worker env.
 - **i18n:** `src/features/i18n/dictionaries/en.ts` + `zh.ts` must be structurally identical (`zh` is typed `Dict = typeof en`). Add every key to both.
 - **DB:** Drizzle + D1 migrations — `pnpm db:generate` then `pnpm db:migrate:local`; register new tables in `src/db/schema.ts`.
-- **No mock, graceful degradation:** optional integrations (email, Stripe, Turnstile, Sentry) switch off when their env keys are absent — keep that behavior. (Cloudflare Web Analytics needs no key: Cloudflare injects the beacon at the edge.)
+- **No mock, graceful degradation:** optional integrations (email, Stripe, Turnstile, Sentry) switch off when their env keys are absent — keep that behavior. (Cloudflare Web Analytics needs no key: Cloudflare injects the beacon at the edge.) Google Analytics 4 is the one build-time switch: `GA_MEASUREMENT_ID` is inlined by Vite, and when it is blank `vite.config.ts` aliases the GA loader to a no-op stub so no GA code reaches the bundle.
 - **Email providers:** `EMAIL_PROVIDER` picks `resend` (default) or `flowmails`; only that provider's key (`RESEND_API_KEY` / `EMAIL_FLOWMAILS_APIKEY`) is read, and there is no fallback between them. `src/features/email/provider.ts` owns the selection, key lookup and `EMAIL_FROM` parsing — extend it there rather than branching at call sites.
 - **Routes:** after adding a route, run `pnpm build` before `pnpm typecheck` (the route tree is generated at build).
 - **Tests:** Vitest — node pool (`*.node.test.ts`) for pure logic, workers pool (`*.workers.test.ts`) for D1; the workers pool does NOT auto-apply migrations (hand-create tables in `beforeAll`).

@@ -16,7 +16,7 @@ title: "安全加固"
 
 外加**仅生产**注入的 `Content-Security-Policy`(dev 不注入,因为 Vite 需要 eval/ws)。当前 CSP 用了 `'unsafe-inline'`(TanStack 的注水内联脚本 + React/Tailwind 内联样式需要),并放行了字体/Turnstile/Analytics 域。**建议的下一步**是改成基于 nonce 的策略以去掉 `'unsafe-inline'`。
 
-改 CSP:编辑 `security-headers.ts` 里的 `PROD_CSP`。新增第三方域(脚本/iframe/上报)时记得同步放行,否则浏览器会拦。
+改 CSP:编辑 `security-headers.ts` 里的 `buildCsp()`。新增第三方域(脚本/iframe/上报)时记得同步放行,否则浏览器会拦。Google Analytics 4 的域名是**构建期注入**的:配了 `GA_MEASUREMENT_ID` 才放行 `www.googletagmanager.com` 与 `*.google-analytics.com` 等,没配就一个都不放(清单见 `src/features/analytics/csp-hosts.ts`)。
 
 ## 2. 启动期环境校验(`src/lib/env-validate.ts`)
 

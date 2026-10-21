@@ -82,3 +82,7 @@ TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
 # Sentry server-side error reporting. Blank = off. DSN is in the Sentry project settings.
 SENTRY_DSN=
+# ── Build-time vars (NOT here) ───────────────────────────────────────────────
+# Google Analytics 4 (`GA_MEASUREMENT_ID`) is read by Vite while `vite build`
+# runs, so it lives in `.env` (see `.env.example`) or your CI environment —
+# not in `.dev.vars`. Blank = the GA4 code is not compiled into the bundle.

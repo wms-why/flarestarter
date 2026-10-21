@@ -1,5 +1,6 @@
 import { test, expect, vi, afterEach } from 'vitest'
-import { withSecurityHeaders } from './security-headers'
+import { buildCsp, withSecurityHeaders } from './security-headers'
+import { GA_CONNECT_HOSTS, GA_SCRIPT_HOSTS } from '@/features/analytics/csp-hosts'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -34,6 +35,20 @@ test('CSP is set in production and allows Turnstile/analytics', () => {
   expect(csp).not.toContain('fonts.googleapis.com') // fonts are self-hosted
   expect(csp).not.toContain('fonts.gstatic.com')
   expect(csp).toContain("frame-ancestors 'none'")
+})
+
+test('CSP does not allow Google when the GA4 integration is not shipped', () => {
+  const csp = buildCsp()
+  expect(csp).not.toContain('googletagmanager.com')
+  expect(csp).not.toContain('google-analytics.com')
+})
+
+test('CSP allows the GA4 hosts when the integration is shipped', () => {
+  const csp = buildCsp({ script: GA_SCRIPT_HOSTS, connect: GA_CONNECT_HOSTS })
+  expect(csp).toContain('script-src') // sanity: the directive is still there
+  expect(csp).toContain('https://www.googletagmanager.com')
+  expect(csp).toContain('https://*.google-analytics.com')
+  expect(csp).toContain('https://analytics.google.com')
 })
 
 test('protocol upgrades (101 / websocket) pass through untouched', () => {

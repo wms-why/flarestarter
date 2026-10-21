@@ -141,6 +141,7 @@ src/
     admin/         # admin plugin wiring + dashboard
     maintenance/   # Cron cleanup task (expired sessions/tokens/rate-limit rows)
     theme/         # dark-first theme toggle
+    analytics/     # optional Google Analytics 4 (build-time switch, off by default)
   routes/
     {-$locale}/    # locale-prefixed pages: /, /zh, /admin, /app, ...
     api/, docs/, docs-md/, llms.txt, robots.txt, sitemap.xml   # top-level routes (outside the locale group)
@@ -160,6 +161,7 @@ See [`.dev.vars.example`](.dev.vars.example) for the full list. Locally everythi
 - `ADMIN_EMAILS`
 - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (optional bot protection — [security](https://flarestarter.com/docs/platform/security))
 - `SENTRY_DSN` (optional server-side error reporting — [observability](https://flarestarter.com/docs/platform/observability)). Web Analytics needs no env var: Cloudflare injects the beacon at the edge once you enable it in the dashboard.
+- `GA_MEASUREMENT_ID` (optional **build-time** Google Analytics 4 measurement id — [observability](https://flarestarter.com/docs/platform/observability)). Blank = the GA4 code is not compiled into the bundle at all. It is read from `.env` / your CI env (see [`.env.example`](.env.example)), **not** from `.dev.vars`.
 
 Every optional integration degrades gracefully: leave its keys blank and the
 feature simply turns off. The startup env validator catches misconfigurations

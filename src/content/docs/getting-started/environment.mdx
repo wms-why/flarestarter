@@ -25,6 +25,26 @@ description: 了解 FlareStarter 需要配置哪些环境变量以及它们的�
   }}
 />
 
+## 构建期变量(Vite,不是 Cloudflare env)
+
+有一类变量在 **`vite build` 的时候**就被读出来、**内联进产物**,而不是等 worker 运行时才注入。
+目前只有一个:
+
+<Callout type="info">
+这类变量请写在 `.env`(本地,参考仓库里的 `.env.example`)或 CI 的环境变量里,**不要**写进
+`.dev.vars` / `wrangler secret`——Cloudflare 的 var 要等 worker 跑起来才存在,那时产物早已定型,
+「没配就不集成」就落空了。
+</Callout>
+
+<TypeTable
+  type={{
+    GA_MEASUREMENT_ID: {
+      description: 'Google Analytics 4 衡量 ID(形如 G-XXXXXXXXXX)。留空 = 打包不集成:产物里没有 GA 代码,浏览器不会向 Google 发请求,生产 CSP 也不放行 Google 的域名。详见 [可观测性](/docs/platform/observability)。',
+      type: 'string',
+    },
+  }}
+/>
+
 ## 数据库 (D1)
 无需在此处配置数据库账号密码。Cloudflare D1 使用绑定的 Database ID，详情请见 [部署到 Cloudflare](/docs/getting-started/deploy)。
 
