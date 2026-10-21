@@ -65,7 +65,7 @@ FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实�
 | **AI 友好** | **部署侧**：内置 [`llms.txt`](https://flarestarter.com/llms.txt) 索引与 [`llms-full.txt`](https://flarestarter.com/llms-full.txt) 全文语料，每个文档页均可经 `/docs-md/*` 取到去除 frontmatter 的干净 Markdown，`robots.txt` 主动指向二者——便于 ChatGPT / Perplexity 等 AI 爬虫索引、引用你的内容。**代码侧**：[`AGENTS.md`](AGENTS.md)（+ 自动导入的 [`CLAUDE.md`](CLAUDE.md)）作为单一事实来源，让 Claude Code / Codex 等编码 agent 即刻读懂本仓库、直接在其上开发。 |
 | **后台** | better-auth admin 插件：角色管理、账号封禁、用户模拟登录 (Impersonation)、可搜索/分页的用户表，以及统计仪表盘（注册数 / 活跃数 / 订阅）——全部基于真实数据，无任何虚构指标。 |
 | **主题** | 暗色优先设计 + 亮/暗模式切换，用户偏好经 cookie 持久化。 |
-| **安全 & 可观测性** | Turnstile bot 防护、安全响应头 + 生产环境 CSP、认证端点限流（D1 存储）、启动期环境变量校验（fail-fast）；CF Web Analytics（无 cookie）与 Sentry 错误上报——均可选，留空即关。见 [安全文档](https://flarestarter.com/docs/platform/security) / [可观测性文档](https://flarestarter.com/docs/platform/observability)。 |
+| **安全 & 可观测性** | Turnstile bot 防护、安全响应头 + 生产环境 CSP、认证端点限流（D1 存储）、启动期环境变量校验（fail-fast）；CF Web Analytics（无 cookie，在 Cloudflare 控制台开启即可，代码与环境变量都不用改）与 Sentry 错误上报（可选，留空即关）。见 [安全文档](https://flarestarter.com/docs/platform/security) / [可观测性文档](https://flarestarter.com/docs/platform/observability)。 |
 | **运维 (Dev/Ops)** | Cron Triggers 定时任务参考实现（每日清理过期 session/token/限流行）、local/staging/prod 多环境分离、GitHub Actions CI（lint + typecheck + 构建）。 |
 
 ## 技术栈
@@ -138,7 +138,6 @@ src/
     seo/           # sitemap、robots、多语言 head 标签
     docs/          # fumadocs 源/布局配置 + llms.txt 文本生成
     admin/         # admin 插件接线 + 仪表盘
-    analytics/     # CF Web Analytics beacon (可选)
     maintenance/   # Cron 定时清理任务 (过期 session/token/限流行)
     theme/         # 暗色优先的主题切换
   routes/
@@ -159,7 +158,7 @@ drizzle/           # 生成的 SQL 迁移文件（仓库根，与 src/ 同级）
 - `BILLING_PROVIDERS`（计费服务商名单——`stripe,waffo,creem,paypal`；不设 = 四家全开，各家仍受密钥门控）；`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`，其余三家的 `WAFFO_*`、`CREEM_*`、`PAYPAL_*`。**商品 ID 在 `src/features/billing/plans.ts` 里，不在环境变量中**。`STRIPE_WECHAT_PAY_ENABLED`（可选,设 `false` 关掉赞助页的微信支付入口）。
 - `ADMIN_EMAILS`（管理员邮箱）。
 - `TURNSTILE_SITE_KEY`、`TURNSTILE_SECRET_KEY`（可选的 bot 防护——见 [安全文档](https://flarestarter.com/docs/platform/security)）。
-- `CF_ANALYTICS_TOKEN`、`SENTRY_DSN`（可选的数据分析 + 错误上报——见 [可观测性文档](https://flarestarter.com/docs/platform/observability)）。
+- `SENTRY_DSN`（可选的服务端错误上报——见 [可观测性文档](https://flarestarter.com/docs/platform/observability)）。Web Analytics 不需要环境变量：在 Cloudflare 控制台开启后，beacon 由边缘自动注入。
 
 **优雅降级机制**：每个可选集成均支持优雅降级。如果留空对应的 key，该功能即自动关闭。启动期的环境变量校验会拦截错误的配置（如缺失必填项、OAuth/Turnstile 配置不全等），并触发快速失败 (fail-fast)，避免在运行时产生意料之外的错误。
 

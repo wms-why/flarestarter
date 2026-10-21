@@ -80,8 +80,5 @@ ADMIN_EMAILS=
 # https://dash.cloudflare.com/?to=/:account/turnstile to get the keys.
 TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
-# Cloudflare Web Analytics (privacy-friendly, free). Blank = no beacon injected.
-# Token lives in Dashboard -> Analytics & Logs -> Web Analytics.
-CF_ANALYTICS_TOKEN=
 # Sentry server-side error reporting. Blank = off. DSN is in the Sentry project settings.
 SENTRY_DSN=

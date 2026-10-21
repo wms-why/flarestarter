@@ -65,7 +65,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 | **AI-ready** | **Runtime:** built-in [`llms.txt`](https://flarestarter.com/llms.txt) index and [`llms-full.txt`](https://flarestarter.com/llms-full.txt) full corpus, clean frontmatter-stripped Markdown for any doc page via `/docs-md/*`, and a `robots.txt` pointing to both — so AI crawlers and answer engines (ChatGPT, Perplexity, …) can index and cite your content. **Codebase:** [`AGENTS.md`](AGENTS.md) (auto-imported into [`CLAUDE.md`](CLAUDE.md)) is a single source of truth that lets coding agents like Claude Code / Codex understand this repo and build on it right away. |
 | **Admin** | better-auth admin plugin: roles, ban, user impersonation, a searchable/paginated user table, and a stats dashboard (registrations / active / subscriptions) — all built on real data, no fabricated metrics. |
 | **Theme** | Dark-first design with a light/dark toggle persisted via cookie. |
-| **Security & observability** | Turnstile bot protection, security headers + production CSP, auth-endpoint rate limiting (D1-backed), startup env validation (fail-fast); CF Web Analytics (cookieless) and Sentry error reporting — all optional, off when their keys are blank. See [security](https://flarestarter.com/docs/platform/security) / [observability](https://flarestarter.com/docs/platform/observability). |
+| **Security & observability** | Turnstile bot protection, security headers + production CSP, auth-endpoint rate limiting (D1-backed), startup env validation (fail-fast); CF Web Analytics (cookieless — enabled in the Cloudflare dashboard, no code or env var needed) and Sentry error reporting (optional, off when its key is blank). See [security](https://flarestarter.com/docs/platform/security) / [observability](https://flarestarter.com/docs/platform/observability). |
 | **Dev/Ops** | A Cron Triggers reference implementation (daily cleanup of expired sessions/tokens/rate-limit rows), local/staging/prod environment separation, and GitHub Actions CI (lint + typecheck + build). |
 
 ## Tech stack
@@ -139,7 +139,6 @@ src/
     seo/           # sitemap, robots, locale head tags
     docs/          # fumadocs source/layout config + llms.txt text generation
     admin/         # admin plugin wiring + dashboard
-    analytics/     # CF Web Analytics beacon (optional)
     maintenance/   # Cron cleanup task (expired sessions/tokens/rate-limit rows)
     theme/         # dark-first theme toggle
   routes/
@@ -160,7 +159,7 @@ See [`.dev.vars.example`](.dev.vars.example) for the full list. Locally everythi
 - `BILLING_PROVIDERS` (billing provider roster — `stripe,waffo,creem,paypal`; unset = all, each still secret-gated); `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`; `WAFFO_*`, `CREEM_*`, `PAYPAL_*` for the others. **Product ids live in `src/features/billing/plans.ts`**, not in env. `STRIPE_WECHAT_PAY_ENABLED` (optional — set `false` to turn off WeChat Pay on the sponsor page)
 - `ADMIN_EMAILS`
 - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (optional bot protection — [security](https://flarestarter.com/docs/platform/security))
-- `CF_ANALYTICS_TOKEN`, `SENTRY_DSN` (optional analytics + error reporting — [observability](https://flarestarter.com/docs/platform/observability))
+- `SENTRY_DSN` (optional server-side error reporting — [observability](https://flarestarter.com/docs/platform/observability)). Web Analytics needs no env var: Cloudflare injects the beacon at the edge once you enable it in the dashboard.
 
 Every optional integration degrades gracefully: leave its keys blank and the
 feature simply turns off. The startup env validator catches misconfigurations

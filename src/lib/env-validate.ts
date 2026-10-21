@@ -80,7 +80,6 @@ const envSchema = z
     ADMIN_EMAILS: optional,
     TURNSTILE_SITE_KEY: optional,
     TURNSTILE_SECRET_KEY: optional,
-    CF_ANALYTICS_TOKEN: optional,
     SENTRY_DSN: optional,
   })
   .superRefine((env, ctx) => {

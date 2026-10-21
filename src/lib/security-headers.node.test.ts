@@ -30,7 +30,7 @@ test('CSP is set in production and allows Turnstile/analytics', () => {
   const csp = withSecurityHeaders(new Response('x')).headers.get('content-security-policy')
   expect(csp).toContain("default-src 'self'")
   expect(csp).toContain('https://challenges.cloudflare.com') // Turnstile
-  expect(csp).toContain('https://static.cloudflareinsights.com') // Web Analytics
+  expect(csp).toContain('https://static.cloudflareinsights.com') // Web Analytics (CF edge injection)
   expect(csp).not.toContain('fonts.googleapis.com') // fonts are self-hosted
   expect(csp).not.toContain('fonts.gstatic.com')
   expect(csp).toContain("frame-ancestors 'none'")

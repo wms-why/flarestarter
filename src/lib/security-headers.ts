@@ -20,7 +20,7 @@ const BASE_HEADERS: Record<string, string> = {
 
 const PROD_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com", // Turnstile + Web Analytics beacon
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com", // Turnstile + Web Analytics beacon (injected at the CF edge)
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:", // blob: for client-side avatar preview
   "font-src 'self' data:", // fonts are self-hosted under /fonts

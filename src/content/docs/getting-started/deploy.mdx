@@ -101,7 +101,6 @@ but RESEND_API_KEY is not set …`(Flowmails 则为 `EMAIL_FLOWMAILS_APIKEY`)告
 **公开值**(非机密)则直接写进 `wrangler.jsonc` 的 `env.production.vars`,留空即关闭对应功能:
 
 - `TURNSTILE_SITE_KEY`(Turnstile 站点 key)
-- `CF_ANALYTICS_TOKEN`(Web Analytics beacon token)
 - `AUTH_EMAIL_VERIFY`(是否强制注册邮箱验证;留空 = `true`,设 `false` 则注册完直接进后台)
 - `EMAIL_PROVIDER`(邮件服务商:`resend` = 默认,`flowmails` = 走 Flowmails SDK)
 - `BILLING_PROVIDERS`(启用哪些支付服务商,如 `stripe,waffo`;不设 = 四家全开,各家仍受密钥门控)

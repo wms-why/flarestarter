@@ -2,7 +2,6 @@ import { createRootRoute, HeadContent, Outlet, Scripts, useParams, useRouterStat
 import { isLocale, defaultLocale } from '@/features/i18n/locale'
 import { getPreferences } from '@/server/preferences'
 import { getOptionalUser } from '@/features/auth/middleware'
-import { getAnalyticsToken } from '@/features/analytics/analytics'
 import { Toaster } from '@/components/ui/sonner'
 import { useResolvedTheme } from '@/features/theme/use-resolved-theme'
 import appCss from '@/styles/app.css?url'
@@ -29,16 +28,15 @@ export const Route = createRootRoute({
   loader: async () => {
     // Never throw here: if the root loader errors, the error page replaces
     // RootComponent — i.e. the <html>/<head> shell and stylesheet — and every
-    // page on the site renders as an unstyled fragment. All three values are
-    // cosmetic/optional (theme cookie, header user, analytics token), so a
-    // failure (e.g. a D1 blip in getOptionalUser) degrades to defaults instead.
+    // page on the site renders as an unstyled fragment. Both values are
+    // cosmetic/optional (theme cookie, header user), so a failure (e.g. a D1
+    // blip in getOptionalUser) degrades to defaults instead.
     try {
       const { theme, themeFromCookie } = await getPreferences()
       const user = await getOptionalUser()
-      const analyticsToken = await getAnalyticsToken()
-      return { theme, themeFromCookie, user, analyticsToken }
+      return { theme, themeFromCookie, user }
     } catch {
-      return { theme: 'dark' as const, themeFromCookie: false, user: null, analyticsToken: null }
+      return { theme: 'dark' as const, themeFromCookie: false, user: null }
     }
   },
   component: RootComponent,
@@ -51,7 +49,7 @@ export const Route = createRootRoute({
 const THEME_BOOT_SCRIPT = `(function(){try{if(!/(?:^|;\\s*)theme=/.test(document.cookie)&&matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.classList.replace('dark','light')}}catch(e){}})()`
 
 function RootComponent() {
-  const { theme, analyticsToken } = Route.useLoaderData()
+  const { theme } = Route.useLoaderData()
   const params = useParams({ strict: false }) as { locale?: string }
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   // Validate before use: on 404s the optional {-$locale} param swallows the
@@ -70,14 +68,8 @@ function RootComponent() {
         <Outlet />
         <Scripts />
         <Toaster theme={resolvedTheme} />
-        {/* Cloudflare Web Analytics — only when a beacon token is configured. */}
-        {analyticsToken && (
-          <script
-            defer
-            src="https://static.cloudflareinsights.com/beacon.min.js"
-            data-cf-beacon={JSON.stringify({ token: analyticsToken })}
-          />
-        )}
+        {/* Cloudflare Web Analytics needs no markup here: Cloudflare injects the
+         * beacon script at the edge for proxied HTML responses. */}
       </body>
     </html>
   )
