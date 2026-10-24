@@ -1,5 +1,6 @@
 import type Stripe from 'stripe'
 import { asPlan, isAtLeastTier, tierForProduct, type Plan } from './plans'
+import { classifyPurchase } from '@/features/credits/credits.core'
 import type { ProviderId } from './providers/catalog'
 
 export type { Plan }
@@ -24,6 +25,7 @@ export type DomainEvent =
   | { type: 'subscription.upserted'; eventId: string; providerId: ProviderId; userId: string | null; customerId: string | null; subscriptionId: string; status: string; plan: Plan | null; productId: string | null; currentPeriodEnd: number | null; cancelAtPeriodEnd: boolean; occurredAt?: number }
   | { type: 'subscription.deleted'; eventId: string; providerId: ProviderId; userId: string | null; customerId: string | null; subscriptionId: string; occurredAt?: number }
   | { type: 'purchase.completed'; eventId: string; providerId: ProviderId; userId: string | null; customerId: string | null; plan: Plan | null; productId: string | null; paymentRef: string | null }
+  | { type: 'credits.purchased'; eventId: string; providerId: ProviderId; userId: string | null; packId: string | null; paymentRef: string | null }
   | { type: 'purchase.refunded'; eventId: string; providerId: ProviderId; userId: string | null; customerId: string | null; paymentRef: string | null }
   | { type: 'payment.failed'; eventId: string; providerId: ProviderId; userId: string | null; customerId: string | null; occurredAt?: number }
   | { type: 'ignored'; eventId: string }
@@ -112,14 +114,45 @@ export function translateStripeEvent(event: Stripe.Event): DomainEvent {
       // priceId: null is intentional — the Checkout Session object carries no line-item prices without an expand/fetch,
       // and the grant is plan-agnostic, so null is fine.
       const pi = typeof s.payment_intent === 'string' ? s.payment_intent : (s.payment_intent?.id ?? null)
+      // The checkout metadata is ours (written at `startCreditCheckout`); when it
+      // names a credit pack, this purchase is a credit top-up, not a lifetime
+      // grant. Without it, fall back to the legacy price-id lookup (which is
+      // effectively null, since `pi` is a payment id, not a product id).
+      const metaProductId = typeof s.metadata?.productId === 'string' ? s.metadata.productId : null
+      const declaredKind = typeof s.metadata?.kind === 'string' ? s.metadata.kind : null
+      const classified = classifyPurchase('stripe', metaProductId)
+      if (classified.kind === 'credits') {
+        return {
+          type: 'credits.purchased',
+          eventId: event.id,
+          providerId,
+          userId: s.client_reference_id ?? null,
+          packId: classified.pack.id,
+          paymentRef: pi,
+        }
+      }
+      // A session that *says* it is a credit purchase but resolves to no pack is
+      // a configuration error (the pack's Stripe product id is blank, or was
+      // renamed). Never fall through to the lifetime path here: that would grant
+      // Pro to someone who paid for credits. Ignore loudly for manual reconcile.
+      if (declaredKind === 'credits') {
+        console.error(
+          `[billing] Stripe checkout ${s.id} (payment_intent ${pi}) declares kind=credits `
+          + `(pack ${String(s.metadata?.packId ?? 'unknown')}) but its productId `
+          + `${metaProductId ? `"${metaProductId}"` : '(missing)'} matches no credit pack's configured `
+          + `Stripe product id — nothing was granted. Fix creditPacks[].productIds.stripe and reconcile this payment.`,
+        )
+        return { type: 'ignored', eventId: event.id }
+      }
+      const productId = metaProductId
       return {
         type: 'purchase.completed',
         eventId: event.id,
         providerId,
         userId: s.client_reference_id ?? null,
         customerId: s.customer ? String(s.customer) : null,
-        plan: tierForProduct('stripe', pi)?.id ?? null,
-        productId: null,
+        plan: tierForProduct('stripe', productId ?? pi)?.id ?? null,
+        productId,
         paymentRef: pi,
       }
     }

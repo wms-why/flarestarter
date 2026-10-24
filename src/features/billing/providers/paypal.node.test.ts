@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createPaypalProvider, isSubscriptionPlanId, normalizePaypalEventType, type PaypalEnv } from '@/features/billing/providers/paypal'
+import { creditPacks } from '@/features/credits/credit-packs'
 
 const ENV: PaypalEnv = {
   PAYPAL_CLIENT_ID: 'cid',
@@ -250,6 +251,36 @@ describe('createPaypalProvider — webhook verification', () => {
     const { impl } = stubFetch(routes({ json: { verification_status: 'SUCCESS' } }))
     const approved = JSON.stringify({ id: 'WH-EVT-2', event_type: 'CHECKOUT.ORDER.APPROVED', resource: {} })
     expect(await createPaypalProvider(ENV, impl).parseWebhook(approved, PAYPAL_HEADERS)).toEqual({ type: 'ignored', eventId: 'WH-EVT-2' })
+  })
+
+  test('a capture whose purchase unit references a credit pack routes to credits.purchased', async () => {
+    const pack = creditPacks.find((p) => p.id === 'starter')!
+    const original = pack.productIds.paypal
+    pack.productIds.paypal = 'CRED-starter'
+    try {
+      const { impl } = stubFetch(routes({ json: { verification_status: 'SUCCESS' } }))
+      const capture = JSON.stringify({
+        id: 'WH-EVT-CAP',
+        event_type: 'PAYMENT.CAPTURE.COMPLETED',
+        create_time: '2026-01-01T00:00:00Z',
+        resource: {
+          id: 'CAP-1',
+          custom_id: 'u1',
+          purchase_units: [{ reference_id: 'CRED-starter' }],
+        },
+      })
+      const out = await createPaypalProvider(ENV, impl).parseWebhook(capture, PAYPAL_HEADERS)
+      expect(out).toEqual({
+        type: 'credits.purchased',
+        eventId: 'WH-EVT-CAP',
+        providerId: 'paypal',
+        userId: 'u1',
+        packId: 'starter',
+        paymentRef: 'CAP-1',
+      })
+    } finally {
+      pack.productIds.paypal = original
+    }
   })
 })
 

@@ -10,15 +10,25 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
-import { LogOut, Trash2 } from 'lucide-react'
+import { LogOut, Trash2, Coins } from 'lucide-react'
 import { ManageSubscription } from '@/features/billing/components/manage-subscription'
 import { AvatarUploader } from '@/features/storage/components/avatar-uploader'
+import { creditsFeatureEnabled, getCredits } from '@/features/credits/credits.serverfn'
 
 export const Route = createFileRoute('/{-$locale}/app/account')({
   head: () => ({ meta: [{ name: 'robots', content: 'noindex' }] }),
   loader: async ({ params }) => {
-    const [user, ent] = await Promise.all([requireUser({ data: { locale: (params as { locale?: string }).locale } }), getEntitlement()])
-    return { user, ent }
+    const [user, ent] = await Promise.all([
+      requireUser({ data: { locale: (params as { locale?: string }).locale } }),
+      getEntitlement(),
+    ])
+    // Skip the credits round trip entirely when the feature is switched off —
+    // a hidden section must not cost a D1 read (or create a credit account for
+    // someone who will never look at it).
+    const credits = (await creditsFeatureEnabled())
+      ? await getCredits({ data: { page: 0, pageSize: 5 } })
+      : null
+    return { user, ent, credits }
   },
   component: AccountPage,
 })
@@ -48,7 +58,7 @@ function Section({
 }
 
 function AccountPage() {
-  const { user, ent } = Route.useLoaderData()
+  const { user, ent, credits } = Route.useLoaderData()
   const { t } = useTranslation()
   const router = useRouter()
 
@@ -108,6 +118,22 @@ function AccountPage() {
         <Section title={t('storage.avatar')}>
           <AvatarUploader image={user.image} name={user.name} />
         </Section>
+
+        {credits && (
+          <Section title={t('credits.accountSection')}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-baseline gap-3">
+                <span className="font-display text-[26px] font-semibold tabular-nums tracking-[-0.6px]">
+                  {credits.account.balance.toLocaleString()}
+                </span>
+                <span className="text-[13px] text-fg-3">{t('credits.balance')}</span>
+              </div>
+              <Link to="/{-$locale}/app/credits" className={buttonVariants({ variant: 'outline' })}>
+                <Coins size={15} /> {t('credits.title')}
+              </Link>
+            </div>
+          </Section>
+        )}
 
         <Section title={t('auth.changePassword')}>
           <form onSubmit={handleChangePassword} className="grid gap-4">

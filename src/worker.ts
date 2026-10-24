@@ -14,6 +14,7 @@ import { withSecurityHeaders } from '@/lib/security-headers'
 import { assertEnvOnce } from '@/lib/env-validate'
 import { createDb } from '@/db/client'
 import { runCleanup } from '@/features/maintenance/cleanup'
+import { runCreditJobs } from '@/features/credits/credits.server'
 
 const fetchHandler = (
   entry as { fetch: (request: Request, env: Cloudflare.Env, ctx: ExecutionContext) => Promise<Response> }
@@ -27,10 +28,20 @@ const handler = {
   },
 
   // Cron Triggers entry (schedule in wrangler.jsonc → triggers.crons). Runs the
-  // maintenance cleanup; extend with your own periodic tasks (digests, etc.).
+  // maintenance cleanup and the credits backfill; extend with your own periodic
+  // tasks (digests, etc.).
   async scheduled(_controller: ScheduledController, env: Cloudflare.Env, _ctx: ExecutionContext): Promise<void> {
-    const result = await runCleanup(createDb(env.DB), Date.now())
+    const db = createDb(env.DB)
+    const now = Date.now()
+    const result = await runCleanup(db, now)
     console.log('[cron] cleanup', result)
+
+    // Monthly credit grants are normally issued lazily when a user's account is
+    // read, so this is only a safety net for accounts nobody opens. The
+    // `monthly:<userId>:<period>` idempotency key makes it a no-op for anyone
+    // the lazy path already served, so daily running cannot double-grant.
+    const credits = await runCreditJobs(db, now)
+    console.log('[cron] credits', credits)
   },
 }
 

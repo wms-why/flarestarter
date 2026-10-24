@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { createCreemProvider, normalizeCreemEventType, type CreemEnv } from '@/features/billing/providers/creem'
 import { readPolymorphicId, toEpochMs } from '@/features/billing/providers/shared'
+import { creditPacks } from '@/features/credits/credit-packs'
 
 const ENV: CreemEnv = {
   CREEM_API_KEY: 'creem_test_1',
@@ -188,6 +189,29 @@ describe('parseWebhook — status mapping', () => {
       object: { order: { id: 'ord_1' }, metadata: { userId: 'u1' } },
     })
     expect(out).toMatchObject({ type: 'purchase.refunded', paymentRef: 'ord_1' })
+  })
+
+  test('a checkout whose product maps to a credit pack routes to credits.purchased', async () => {
+    const pack = creditPacks.find((p) => p.id === 'starter')!
+    const original = pack.productIds.creem
+    pack.productIds.creem = 'prod_starter'
+    try {
+      const out = await deliver({
+        id: 'evt_credits',
+        eventType: 'checkout.completed',
+        object: { id: 'chk_credits', product: { id: 'prod_starter' }, metadata: { userId: 'u1' } },
+      })
+      expect(out).toEqual({
+        type: 'credits.purchased',
+        eventId: 'evt_credits',
+        providerId: 'creem',
+        userId: 'u1',
+        packId: 'starter',
+        paymentRef: 'chk_credits',
+      })
+    } finally {
+      pack.productIds.creem = original
+    }
   })
 
   test('unrelated event types short-circuit to ignored before any field digging', async () => {

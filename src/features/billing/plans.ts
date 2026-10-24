@@ -4,7 +4,10 @@
  * Forkers edit THIS file (plus the `billing.*` copy in the i18n dictionaries and
  * the page-level FAQ in `components/pricing-page.tsx`) to retune tiers, prices,
  * feature bullets, and which vendor sells what. Nothing else in the codebase
- * hardcodes a tier, a price, or a product id.
+ * hardcodes a tier, a price, or a product id. The per-tier `credits.monthlyGrant`
+ * is part of the same single customization panel: it is the allowance the
+ * credits slice grants once per UTC calendar month to a subscriber on that
+ * tier (admins count as enterprise).
  *
  * Pure module on purpose: no env, no SDK, no side effects. The server reads it
  * to resolve `productId → tier` on inbound webhooks; the client reads it to
@@ -55,6 +58,13 @@ export interface PlanTier {
   monthly: PlanPrice
   yearly: PlanPrice
   bullets: readonly PlanBullet[]
+  /**
+   * The monthly credit allowance granted to a subscriber on this tier, once
+   * per UTC calendar month. Read by the credits slice (`monthlyGrantFor`); kept
+   * here so the whole plan shape — including what a tier buys in credits — is
+   * tuned from this one file.
+   */
+  credits: { monthlyGrant: number }
 }
 
 /** Every id a vendor must get right for the checkout buttons to work. */
@@ -80,6 +90,7 @@ export const planTiers = [
       { text: { en: 'Priority support', zh: '优先支持' }, enabled: false },
       { text: { en: 'Team seats', zh: '团队席位' }, enabled: false },
     ],
+    credits: { monthlyGrant: 100 },
   },
   {
     id: 'pro',
@@ -113,6 +124,7 @@ export const planTiers = [
       { text: { en: 'SSO / SAML + audit log', zh: 'SSO / SAML + 审计日志' }, enabled: false },
       { text: { en: 'White-label (no FlareStarter branding)', zh: '白标（不显示 FlareStarter 品牌）' }, enabled: false },
     ],
+    credits: { monthlyGrant: 5_000 },
   },
   {
     id: 'enterprise',
@@ -138,6 +150,7 @@ export const planTiers = [
       { text: { en: '99.9% uptime SLA', zh: '99.9% 可用性 SLA' }, enabled: false },
       { text: { en: 'White-label + shared support channel', zh: '白标 + 专属支持频道' }, enabled: false },
     ],
+    credits: { monthlyGrant: 50_000 },
   },
 ] as const satisfies readonly PlanTier[]
 

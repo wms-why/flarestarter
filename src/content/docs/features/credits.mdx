@@ -1,0 +1,154 @@
+---
+title: "积分与用量"
+---
+
+积分是「按量计费」的最小单位:每个用户每月按套餐领取一笔额度,真实功能消耗它,也可以单独购买充值包加购。本页讲**总开关**、**账户与账本两张表为何同时存在**、**原子入账与幂等键**、**月度发放的惰性补发**、**在功能里消耗积分**、**充值包与服务商校验**,以及**已知取舍**。
+
+## 总开关:`CREDITS_ENABLED`
+
+积分是一整套纵向切面(表、server fn、路由、导航、i18n、管理端)。只想用订阅的项目不该为了关掉它去删文件,所以有一个开关:
+
+```bash
+CREDITS_ENABLED=true    # 启用;留空 / false = 关闭(默认)
+```
+
+**默认关闭。** 仓库的规矩是「未配置的集成降级为关」,而且出厂的充值包 `productIds` 全是空串(实际上不卖任何东西),默认打开只会让新克隆看到一个空商店。
+
+关闭时,以下内容**全部消失**:
+
+| 位置 | 关闭后的行为 |
+|---|---|
+| `/app/credits`、`/admin/credits` | 抛 `notFound()`,URL 不存在 |
+| 侧边栏「积分」项、管理端「积分」项 | 不渲染 |
+| 首页快速入口卡 | 不渲染 |
+| 账户页积分区块 | 不渲染(且**不再发起** `getCredits` 的 D1 查询) |
+| 管理端统计里的 3 张积分卡 | 不渲染(`getAdminStats` 也不再查积分表) |
+
+**开关只管「人看到什么」,不管账。** 数据层照常运行:webhook 仍会入账,`reconcileAccount` 仍能对账,退款回冲仍会去读账本——因为如果曾经在有积分时发过额度,关掉开关绝不能把已有的账本行变成孤儿,否则退款就扣不回来了。
+
+配置了非法值(如 `flase`)会在启动时**直接报错**,而不是悄悄当成某个默认值:`CREDITS_ENABLED must be true or false`。解析逻辑在 `features/credits/credits-switch.ts`,与 `AUTH_EMAIL_VERIFY` 共用 `lib/bool-switch.ts`。
+
+## 两张表:账户(物化余额)与账本(只追加事实)
+
+积分由两张表共同表达,缺一不可:
+
+- **`credit_account`** — 每个用户一行。`balance` 是**物化缓存**,查询时直接读,不必每次扫账本;`periodKey`(UTC 日历月 `YYYY-MM`)、`periodGrant`、`lifetimePurchased`、`lifetimeConsumed` 支撑月度发放幂等与升级补差。
+- **`credit_ledger`** — 只追加的流水。每一行记录一次余额变动:正数=发放/购买,负数=消费/退款/调账,并落 `balanceAfter` 快照。它是**退款、人工调账、用户申诉的审计事实源**。
+
+为什么两张表都要?因为两张表回答的问题不同:
+
+| | 账户表 | 账本表 |
+|---|---|---|
+| 回答 | 「现在有多少」 | 「余额是怎么变成现在的值的」 |
+| 写入 | 每次变动都改 | 只追加,永不更新/删除 |
+| 索引 | `user_id` 主键 | `(userId, createdAt)`、`ref` |
+| 代价 | O(1) 读 | O(n) 读,但审计必需 |
+
+余额**永不为负**:由 guarded UPDATE(`UPDATE … SET balance = balance - ? WHERE user_id = ? AND balance >= ?`)保证——并发扣减时余额不足的那一行根本匹配不到,直接失败。
+
+## 一次变动,一个事务:`applyCreditDelta`
+
+余额和它的账本行**必须同时出现或同时消失**。否则重启、重试、或并发下会出现「余额变了但没流水」或「有流水但余额没变」——前者无法审计,后者会让余额逐渐失真。
+
+`credits.server.ts` 的 `applyCreditDelta` 把两者收进**一个 `db.batch` 事务**:
+
+```ts
+// 概念示意（真实实现见 credits.server.ts）
+await db.batch([
+  // 1. guarded UPDATE：余额不足时这条不匹配，整个事务失败
+  db.update(creditAccount).set({ balance: sql`${creditAccount.balance} + ${delta}` })
+    .where(and(eq(creditAccount.userId, userId), sql`${creditAccount.balance} + ${delta} >= 0`)),
+  // 2. 同一事务内的条件 INSERT：把这次变动写进流水
+  db.insert(creditLedger).values({ id, userId, delta, balanceAfter, kind, idempotencyKey, ref, note, createdAt }),
+])
+```
+
+guarded UPDATE 与条件 INSERT 在同一个事务里,所以「余额移动」和「对应流水行」要么一起发生、要么都不发生——原子性由 D1 的单写事务保证。
+
+## 幂等键:同一笔只入账一次
+
+账本的 `idempotency_key` 上有**唯一索引**。webhook 会重投、cron 会重跑、管理员会重复点击——靠这个键兜底,重复事件第二次直接命中唯一约束、整笔丢弃。四类键的命名约定:
+
+| 场景 | 幂等键 |
+|---|---|
+| 月度发放 | `monthly:<userId>:<period>` |
+| 充值包购买 | `credits:<provider>:<paymentRef>` |
+| 升级补差 | `upgrade:<userId>:<period>:<plan>` |
+| 退款回冲 | `refund:<provider>:<paymentRef>` |
+
+注意键里**带周期/provider/paymentRef**:同一次月度发放在重试时是同一个键,但两个不同月份、两个不同服务商的退款互不吞并。
+
+## 月度发放:惰性补发 + 可选 cron
+
+每月发放有两条路径,都是幂等的:
+
+1. **惰性补发**(主要路径)。任何读余额的入口(页面 loader、`getCreditAccount`)都会检查:如果 `periodKey` 已经落后于当前 UTC 月,就当场把新周期额度发下去并更新 `periodKey`。好处是**不依赖定时任务**——用户隔了两个月回来,打开页面那一刻就补齐了,不会因为 cron 没跑而少发。
+2. **cron(可选加固)**。`wrangler.jsonc` 里配一个 `crons` 条目定期扫描长期不活跃的账户,作为兜底。惰性补发已经覆盖活跃用户,cron 只是让长期休眠账户也能在无人访问时补齐。
+
+发放金额**只配置在 `plans.ts`** 的 `credits.monthlyGrant` 字段——积分层不再保留任何第二份默认值,改一个数就够了:
+
+| 套餐 | 月度发放 |
+|---|---|
+| free | 100 |
+| pro | 5,000 |
+| enterprise | 50,000 |
+| admin 角色 | 按 enterprise 计 |
+
+管理员在积分上按 enterprise 处理(对齐 `hasProAccess` 的 bypass),所以新注册的 admin 直接拿到 50,000 额度。
+
+**升级补差**:`upgradeDeltaFor(prevPeriodGrant, newPlan)` 在改套餐时把本周期额度补到新档位,而不是让用户等到下个月。若旧档位本周期发得比新档位还多,则补 0。
+
+## 在真实功能里消耗积分
+
+消费入口是 `consumeCredits(db, input, now)`。它返回 `{ ok: true, balanceAfter }` 或 `{ ok: false, reason: 'insufficient_credits' }`——余额不足时**不抛错**,让调用方给用户一个具体的提示,而不是一坨通用错误。
+
+一个按量功能的接入只有三行:
+
+```ts
+import { consumeCredits } from '@/features/credits/credits.server'
+
+const res = await consumeCredits(db, {
+  userId,
+  cost: 10,
+  ref: taskId,        // 任务 id，用于对账
+  note: 'transcribe',
+}, Date.now())
+if (!res.ok) throw new Error('not enough credits')
+// res.balanceAfter 是扣减后的余额
+```
+
+> 服务器函数要放在单独模块(`credits.serverfn.ts`)里,路由文件同时会被编译进客户端 bundle;直接把 `credits.server` 引入 loader 会把 `@/lib/env`、厂商 SDK 拖进浏览器。见 `billing.serverfn.ts` 的同名说明。
+
+## 充值包:一个文件 + 一个校验闸门
+
+充值包定义在 **`credit-packs.ts`**,和套餐档位一样收敛成纯数据:
+
+```ts
+export const creditPacks = [
+  { id: 'starter', name: { en: 'Starter pack', zh: '入门包' }, credits: 1_000, amountUsd: 5,
+    productIds: { stripe: 'price_…', waffo: '', creem: '', paypal: '' } },
+  // growth / scale …
+]
+```
+
+- `amountUsd: 0` 表示**不出售**。
+- `productIds[provider]` 为空串 = 该服务商**没有这个包的商品**,按钮消失而不是报错。
+- `packForProduct(providerId, productId)` 是 webhook 路由的**唯一权威**:决定这笔购买是不是积分包的,是**服务商回传的商品 ID**,不是客户端任何字段。
+
+**Stripe 的特殊之处**:`checkout.session.completed` 事件体里**没有 line-item price**(除非额外 expand),所以 Stripe 这条链路唯一能拿到商品 ID 的地方,是**我们在建会话时自己写进 metadata 的 `productId`**。因此 `startCreditCheckout` 必须把 `productId` 一并写进 `metadata`——少了它,webhook 就无法分辨「买了积分包」还是「买了套餐」,会把积分订单错授成终身 Pro。
+
+为防配置错误,`translateStripeEvent` 在遇到 `metadata.kind === 'credits'` 但 `productId` 解析不到任何积分包时(包的 Stripe 商品 ID 是空串或改了名),**显式忽略并打错误日志**(而不是落回终身授予),交人工对账。
+
+能否购买由 **`resolveCreditPack(env, pack, provider)`** 一处判定,按顺序检查:服务商开关 → 密钥 → 该包该服务商的商品 ID → PayPal 的 `P-` 前缀守卫(`P-` 是订阅计划 ID,走订阅路径,不是积分路径)。**页面渲染按钮和 `startCreditPurchase` 建会话调用的是同一个函数**,所以「能点的按钮」和「点了真能付」不可能不一致。
+
+## 退款回冲与 0 下限
+
+退款把扣掉的积分加回去(`kind: 'refund'`)。如果这笔退款对应的消费发生在很久以前、余额已经被花掉,回冲不会让余额变成负数——**0 下限钳制**:加回去的额度最多到 0,差额留在账本上可查。人工调账同理:管理员下的负数 delta 若会让余额跌破 0,会**钳制到 `max(-balance, delta)`**,并在 `note` 里记下「从多少钳到多少」,账本里保留实际发生的事实。
+
+## 已知取舍
+
+- **UTC 日历月**。发放按 UTC 计算,与用户所在时区无关——否则「这个用户上次什么时候领过」会随他当时在哪而变。代价是某个时区的月末,用户可能觉得自己被跨月切早了一天。
+- **发放不结转**。每个月额度从零重新算,上月没用完的作废。
+- **降级不回冲**。从 Pro 降到 Free 时,本月已经发放的额度不会被扣回——已消耗/未消耗都留在账户里。
+- **积分不过期**。`credit_account` 没有 expiry 字段,购买的和发放的都没有过期时间。
+- **webhook 丢失**时,积分购买可能停在「已扣款未入账」,用户刷新页面也看不到。这是刻意的:停在不确定状态用户会重试,静默入账则可能被重复扣款。

@@ -40,12 +40,14 @@ import { Route as Char123LocaleChar125authRegisterRouteImport } from './routes/{
 import { Route as Char123LocaleChar125authResetPasswordRouteImport } from './routes/{-$locale}/(auth)/reset-password'
 import { Route as Char123LocaleChar125authVerifyEmailRouteImport } from './routes/{-$locale}/(auth)/verify-email'
 import { Route as Char123LocaleChar125AdminIndexRouteImport } from './routes/{-$locale}/admin/index'
+import { Route as Char123LocaleChar125AdminCreditsRouteImport } from './routes/{-$locale}/admin/credits'
 import { Route as Char123LocaleChar125AdminFeedbackRouteImport } from './routes/{-$locale}/admin/feedback'
 import { Route as Char123LocaleChar125AdminSponsorsRouteImport } from './routes/{-$locale}/admin/sponsors'
 import { Route as Char123LocaleChar125AdminUsersRouteImport } from './routes/{-$locale}/admin/users'
 import { Route as Char123LocaleChar125AdminWaitlistRouteImport } from './routes/{-$locale}/admin/waitlist'
 import { Route as Char123LocaleChar125AppIndexRouteImport } from './routes/{-$locale}/app/index'
 import { Route as Char123LocaleChar125AppAccountRouteImport } from './routes/{-$locale}/app/account'
+import { Route as Char123LocaleChar125AppCreditsRouteImport } from './routes/{-$locale}/app/credits'
 import { Route as Char123LocaleChar125AppFeedbackRouteImport } from './routes/{-$locale}/app/feedback'
 import { Route as Char123LocaleChar125AppProRouteImport } from './routes/{-$locale}/app/pro'
 
@@ -220,6 +222,12 @@ const Char123LocaleChar125AdminIndexRoute =
     path: '/',
     getParentRoute: () => Char123LocaleChar125AdminRouteRoute,
   } as any)
+const Char123LocaleChar125AdminCreditsRoute =
+  Char123LocaleChar125AdminCreditsRouteImport.update({
+    id: '/credits',
+    path: '/credits',
+    getParentRoute: () => Char123LocaleChar125AdminRouteRoute,
+  } as any)
 const Char123LocaleChar125AdminFeedbackRoute =
   Char123LocaleChar125AdminFeedbackRouteImport.update({
     id: '/feedback',
@@ -254,6 +262,12 @@ const Char123LocaleChar125AppAccountRoute =
   Char123LocaleChar125AppAccountRouteImport.update({
     id: '/app/account',
     path: '/app/account',
+    getParentRoute: () => Char123LocaleChar125RouteRoute,
+  } as any)
+const Char123LocaleChar125AppCreditsRoute =
+  Char123LocaleChar125AppCreditsRouteImport.update({
+    id: '/app/credits',
+    path: '/app/credits',
     getParentRoute: () => Char123LocaleChar125RouteRoute,
   } as any)
 const Char123LocaleChar125AppFeedbackRoute =
@@ -300,11 +314,13 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/register': typeof Char123LocaleChar125authRegisterRoute
   '/{-$locale}/reset-password': typeof Char123LocaleChar125authResetPasswordRoute
   '/{-$locale}/verify-email': typeof Char123LocaleChar125authVerifyEmailRoute
+  '/{-$locale}/admin/credits': typeof Char123LocaleChar125AdminCreditsRoute
   '/{-$locale}/admin/feedback': typeof Char123LocaleChar125AdminFeedbackRoute
   '/{-$locale}/admin/sponsors': typeof Char123LocaleChar125AdminSponsorsRoute
   '/{-$locale}/admin/users': typeof Char123LocaleChar125AdminUsersRoute
   '/{-$locale}/admin/waitlist': typeof Char123LocaleChar125AdminWaitlistRoute
   '/{-$locale}/app/account': typeof Char123LocaleChar125AppAccountRoute
+  '/{-$locale}/app/credits': typeof Char123LocaleChar125AppCreditsRoute
   '/{-$locale}/app/feedback': typeof Char123LocaleChar125AppFeedbackRoute
   '/{-$locale}/app/pro': typeof Char123LocaleChar125AppProRoute
   '/{-$locale}/admin/': typeof Char123LocaleChar125AdminIndexRoute
@@ -339,11 +355,13 @@ export interface FileRoutesByTo {
   '/{-$locale}/register': typeof Char123LocaleChar125authRegisterRoute
   '/{-$locale}/reset-password': typeof Char123LocaleChar125authResetPasswordRoute
   '/{-$locale}/verify-email': typeof Char123LocaleChar125authVerifyEmailRoute
+  '/{-$locale}/admin/credits': typeof Char123LocaleChar125AdminCreditsRoute
   '/{-$locale}/admin/feedback': typeof Char123LocaleChar125AdminFeedbackRoute
   '/{-$locale}/admin/sponsors': typeof Char123LocaleChar125AdminSponsorsRoute
   '/{-$locale}/admin/users': typeof Char123LocaleChar125AdminUsersRoute
   '/{-$locale}/admin/waitlist': typeof Char123LocaleChar125AdminWaitlistRoute
   '/{-$locale}/app/account': typeof Char123LocaleChar125AppAccountRoute
+  '/{-$locale}/app/credits': typeof Char123LocaleChar125AppCreditsRoute
   '/{-$locale}/app/feedback': typeof Char123LocaleChar125AppFeedbackRoute
   '/{-$locale}/app/pro': typeof Char123LocaleChar125AppProRoute
   '/{-$locale}/admin': typeof Char123LocaleChar125AdminIndexRoute
@@ -381,11 +399,13 @@ export interface FileRoutesById {
   '/{-$locale}/(auth)/register': typeof Char123LocaleChar125authRegisterRoute
   '/{-$locale}/(auth)/reset-password': typeof Char123LocaleChar125authResetPasswordRoute
   '/{-$locale}/(auth)/verify-email': typeof Char123LocaleChar125authVerifyEmailRoute
+  '/{-$locale}/admin/credits': typeof Char123LocaleChar125AdminCreditsRoute
   '/{-$locale}/admin/feedback': typeof Char123LocaleChar125AdminFeedbackRoute
   '/{-$locale}/admin/sponsors': typeof Char123LocaleChar125AdminSponsorsRoute
   '/{-$locale}/admin/users': typeof Char123LocaleChar125AdminUsersRoute
   '/{-$locale}/admin/waitlist': typeof Char123LocaleChar125AdminWaitlistRoute
   '/{-$locale}/app/account': typeof Char123LocaleChar125AppAccountRoute
+  '/{-$locale}/app/credits': typeof Char123LocaleChar125AppCreditsRoute
   '/{-$locale}/app/feedback': typeof Char123LocaleChar125AppFeedbackRoute
   '/{-$locale}/app/pro': typeof Char123LocaleChar125AppProRoute
   '/{-$locale}/admin/': typeof Char123LocaleChar125AdminIndexRoute
@@ -424,11 +444,13 @@ export interface FileRouteTypes {
     | '/{-$locale}/register'
     | '/{-$locale}/reset-password'
     | '/{-$locale}/verify-email'
+    | '/{-$locale}/admin/credits'
     | '/{-$locale}/admin/feedback'
     | '/{-$locale}/admin/sponsors'
     | '/{-$locale}/admin/users'
     | '/{-$locale}/admin/waitlist'
     | '/{-$locale}/app/account'
+    | '/{-$locale}/app/credits'
     | '/{-$locale}/app/feedback'
     | '/{-$locale}/app/pro'
     | '/{-$locale}/admin/'
@@ -463,11 +485,13 @@ export interface FileRouteTypes {
     | '/{-$locale}/register'
     | '/{-$locale}/reset-password'
     | '/{-$locale}/verify-email'
+    | '/{-$locale}/admin/credits'
     | '/{-$locale}/admin/feedback'
     | '/{-$locale}/admin/sponsors'
     | '/{-$locale}/admin/users'
     | '/{-$locale}/admin/waitlist'
     | '/{-$locale}/app/account'
+    | '/{-$locale}/app/credits'
     | '/{-$locale}/app/feedback'
     | '/{-$locale}/app/pro'
     | '/{-$locale}/admin'
@@ -504,11 +528,13 @@ export interface FileRouteTypes {
     | '/{-$locale}/(auth)/register'
     | '/{-$locale}/(auth)/reset-password'
     | '/{-$locale}/(auth)/verify-email'
+    | '/{-$locale}/admin/credits'
     | '/{-$locale}/admin/feedback'
     | '/{-$locale}/admin/sponsors'
     | '/{-$locale}/admin/users'
     | '/{-$locale}/admin/waitlist'
     | '/{-$locale}/app/account'
+    | '/{-$locale}/app/credits'
     | '/{-$locale}/app/feedback'
     | '/{-$locale}/app/pro'
     | '/{-$locale}/admin/'
@@ -753,6 +779,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125AdminIndexRouteImport
       parentRoute: typeof Char123LocaleChar125AdminRouteRoute
     }
+    '/{-$locale}/admin/credits': {
+      id: '/{-$locale}/admin/credits'
+      path: '/credits'
+      fullPath: '/{-$locale}/admin/credits'
+      preLoaderRoute: typeof Char123LocaleChar125AdminCreditsRouteImport
+      parentRoute: typeof Char123LocaleChar125AdminRouteRoute
+    }
     '/{-$locale}/admin/feedback': {
       id: '/{-$locale}/admin/feedback'
       path: '/feedback'
@@ -795,6 +828,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125AppAccountRouteImport
       parentRoute: typeof Char123LocaleChar125RouteRoute
     }
+    '/{-$locale}/app/credits': {
+      id: '/{-$locale}/app/credits'
+      path: '/app/credits'
+      fullPath: '/{-$locale}/app/credits'
+      preLoaderRoute: typeof Char123LocaleChar125AppCreditsRouteImport
+      parentRoute: typeof Char123LocaleChar125RouteRoute
+    }
     '/{-$locale}/app/feedback': {
       id: '/{-$locale}/app/feedback'
       path: '/app/feedback'
@@ -813,6 +853,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface Char123LocaleChar125AdminRouteRouteChildren {
+  Char123LocaleChar125AdminCreditsRoute: typeof Char123LocaleChar125AdminCreditsRoute
   Char123LocaleChar125AdminFeedbackRoute: typeof Char123LocaleChar125AdminFeedbackRoute
   Char123LocaleChar125AdminSponsorsRoute: typeof Char123LocaleChar125AdminSponsorsRoute
   Char123LocaleChar125AdminUsersRoute: typeof Char123LocaleChar125AdminUsersRoute
@@ -822,6 +863,8 @@ interface Char123LocaleChar125AdminRouteRouteChildren {
 
 const Char123LocaleChar125AdminRouteRouteChildren: Char123LocaleChar125AdminRouteRouteChildren =
   {
+    Char123LocaleChar125AdminCreditsRoute:
+      Char123LocaleChar125AdminCreditsRoute,
     Char123LocaleChar125AdminFeedbackRoute:
       Char123LocaleChar125AdminFeedbackRoute,
     Char123LocaleChar125AdminSponsorsRoute:
@@ -853,6 +896,7 @@ interface Char123LocaleChar125RouteRouteChildren {
   Char123LocaleChar125authResetPasswordRoute: typeof Char123LocaleChar125authResetPasswordRoute
   Char123LocaleChar125authVerifyEmailRoute: typeof Char123LocaleChar125authVerifyEmailRoute
   Char123LocaleChar125AppAccountRoute: typeof Char123LocaleChar125AppAccountRoute
+  Char123LocaleChar125AppCreditsRoute: typeof Char123LocaleChar125AppCreditsRoute
   Char123LocaleChar125AppFeedbackRoute: typeof Char123LocaleChar125AppFeedbackRoute
   Char123LocaleChar125AppProRoute: typeof Char123LocaleChar125AppProRoute
   Char123LocaleChar125AppIndexRoute: typeof Char123LocaleChar125AppIndexRoute
@@ -880,6 +924,7 @@ const Char123LocaleChar125RouteRouteChildren: Char123LocaleChar125RouteRouteChil
     Char123LocaleChar125authVerifyEmailRoute:
       Char123LocaleChar125authVerifyEmailRoute,
     Char123LocaleChar125AppAccountRoute: Char123LocaleChar125AppAccountRoute,
+    Char123LocaleChar125AppCreditsRoute: Char123LocaleChar125AppCreditsRoute,
     Char123LocaleChar125AppFeedbackRoute: Char123LocaleChar125AppFeedbackRoute,
     Char123LocaleChar125AppProRoute: Char123LocaleChar125AppProRoute,
     Char123LocaleChar125AppIndexRoute: Char123LocaleChar125AppIndexRoute,

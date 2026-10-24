@@ -1,13 +1,18 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { DB } from '@/db/client'
 import { subscription, processedWebhookEvents } from './billing.schema'
 import { resolveEntitlement, isActivePro, type DomainEvent, type Entitlement, type BillingTransition } from './entitlement'
 import { scopeFromUser, ownedBy } from '@/db/scope'
+import { rawD1 } from '@/db/raw'
 import type { PaymentProvider } from './payment'
 import { runBillingHooks } from './hooks'
 import type { ProviderId } from './providers/catalog'
 import { disabledProviderReason, getBillingProvider, type BillingEnv } from './providers/registry'
 import { isProviderId } from './providers/catalog'
+import { creditAccount, creditLedger } from '@/features/credits/credits.schema'
+import { applyCreditDelta, grantCredits, type GrantInput } from '@/features/credits/credits.server'
+import { packById } from '@/features/credits/credit-packs'
+import { resolveCreditPack } from '@/features/credits/credits.core'
 
 /** 读用户 entitlement（经归属缝）。 */
 export async function getEntitlementFor(db: DB, userId: string): Promise<Entitlement> {
@@ -23,6 +28,7 @@ export async function getEntitlementFor(db: DB, userId: string): Promise<Entitle
  *  两者皆无的事件无从归属。 */
 async function findRowForEvent(db: DB, event: DomainEvent) {
   if (event.type === 'ignored') return undefined
+  if (event.type === 'credits.purchased') return undefined // no subscription row for a credit buyer
   if (event.userId) {
     const rows = await db.select().from(subscription).where(ownedBy(subscription, scopeFromUser(event.userId)))
     return rows[0]
@@ -32,6 +38,128 @@ async function findRowForEvent(db: DB, event: DomainEvent) {
     return rows[0]
   }
   return undefined
+}
+
+/**
+ * Reverse a credit-pack purchase whose payment was refunded.
+ *
+ * Credits are granted by `credits.purchased` with `kind: 'purchase'` and
+ * `ref` = the payment reference. A refund is a clawback, not a task consume, so
+ * it must not go through `consumeCredits` (that charges a cost and records
+ * `kind: 'consume'`). It routes through the credits module's `applyCreditDelta`
+ * instead, which is the *only* place that owns the guarded UPDATE + ledger
+ * INSERT pair — so a refund gets the same atomic `balanceAfter` snapshot and the
+ * same `lifetime_*` bookkeeping as every other movement.
+ *
+ * **Clamping.** The grant is clamped to the remaining balance: if the buyer spent
+ * part of the pack before the refund, only what is still there is reversed, and
+ * the ledger note records the actual reversed amount.
+ *
+ * **Return value.** `true` means "this refund is a credit matter, the caller must
+ * NOT run the lifetime-subscription refund path" — including the case where the
+ * pack was fully spent and there is nothing left to claw back (the refund is
+ * still a credit refund; falling through would wrongly revoke a subscription).
+ * `false` means "no credit purchase matched at all", so the caller proceeds with
+ * the normal lifetime logic.
+ *
+ * If the credits slice's tables are not migrated (a fixture applying only the
+ * billing schema, or a not-yet-migrated deployment), the lookup is skipped and
+ * this returns false — a refund must never 500 over an absent optional table.
+ */
+async function reverseCreditPurchase(
+  db: DB,
+  event: Extract<DomainEvent, { type: 'purchase.refunded' }>,
+  now: number,
+): Promise<boolean> {
+  // Without a payment reference we cannot match a purchase, and cannot build a
+  // stable idempotency key either — leave the lifetime path alone.
+  if (!event.paymentRef) return false
+
+  const idempotencyKey = `refund:${event.providerId}:${event.paymentRef}`
+
+  // Guard: the credit ledger belongs to the credits slice. A fixture that
+  // applies only the billing schema (or a not-yet-migrated deployment) has no
+  // `credit_ledger`, and a refund must never 500 because of that.
+  const probe = await rawD1(db)
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'credit_ledger'`)
+    .all()
+  if (!probe.results || probe.results.length === 0) return false
+
+  // Locate the purchase rows. Prefer the event's own userId (Waffo/Creem/PayPal
+  // echo it back); Stripe's charge.refunded carries only a customerId, which
+  // usually has no subscription row for a credit buyer — so match on `ref` and
+  // narrow by userId only when the event supplies one. The ledger row's own
+  // `user_id` is authoritative for which account to debit.
+  const purchases = await db
+    .select({ userId: creditLedger.userId, delta: creditLedger.delta })
+    .from(creditLedger)
+    .where(
+      and(
+        eq(creditLedger.kind, 'purchase'),
+        eq(creditLedger.ref, event.paymentRef),
+        ...(event.userId ? [eq(creditLedger.userId, event.userId)] : []),
+      ),
+    )
+  if (purchases.length === 0) return false
+
+  // `$ref` can in principle span accounts; reverse only the row that actually
+  // received the grant rather than trusting `[0]`. Sum per user, then take the
+  // one with the largest grant (a single payment always credits one account).
+  const grantedByUser = new Map<string, number>()
+  for (const row of purchases) {
+    grantedByUser.set(row.userId, (grantedByUser.get(row.userId) ?? 0) + Math.max(0, row.delta))
+  }
+  let targetUserId = ''
+  let granted = 0
+  for (const [userId, amount] of grantedByUser) {
+    if (amount > granted) {
+      granted = amount
+      targetUserId = userId
+    }
+  }
+  if (granted <= 0 || !targetUserId) return false
+
+  // `applyCreditDelta`'s own guard refuses a debit that would go negative, so
+  // asking for the full grant is safe: whatever remains is what gets reversed.
+  // Read the balance first only to decide whether a clamp happened, for the note.
+  const accountRows = await db
+    .select({ balance: creditAccount.balance })
+    .from(creditAccount)
+    .where(ownedBy(creditAccount, scopeFromUser(targetUserId)))
+  const balance = accountRows[0]?.balance ?? 0
+  const reversed = Math.min(granted, Math.max(0, balance))
+
+  const note = reversed < granted
+    ? `refund of credit pack purchase, clamped from ${granted} to remaining balance ${reversed}`
+    : 'refund of credit pack purchase'
+
+  if (reversed > 0) {
+    await applyCreditDelta(db, {
+      userId: targetUserId,
+      delta: -reversed,
+      kind: 'refund',
+      idempotencyKey,
+      ref: event.paymentRef,
+      note,
+      now,
+    })
+    return true
+  }
+
+  // Nothing left to claw back (the pack was fully spent). This is still a credit
+  // refund — returning false here would hand the event to the lifetime path and
+  // wrongly revoke the buyer's subscription. Record a zero-value ledger row so
+  // the refund is auditable and idempotent, then stop.
+  await applyCreditDelta(db, {
+    userId: targetUserId,
+    delta: 0,
+    kind: 'refund',
+    idempotencyKey,
+    ref: event.paymentRef,
+    note: `refund of credit pack purchase, nothing left to reclaim (granted ${granted}, balance 0)`,
+    now,
+  })
+  return true
 }
 
 /** 应用领域事件到订阅表（系统级，按 userId/customerId 定位）。返回发生的状态跃迁（供回调），无跃迁则 null。
@@ -44,6 +172,68 @@ export async function applyDomainEvent(
   cancelSubscription?: (subscriptionId: string) => Promise<void>,
 ): Promise<BillingTransition | null> {
   if (event.type === 'ignored') return null
+
+  // Credit-pack purchases are a separate ledger concern, not a subscription:
+  // they must be handled before the row lookup, because a credit buyer often
+  // has no subscription row at all.
+  if (event.type === 'credits.purchased') {
+    if (!event.userId) {
+      console.error(`[billing] credits.purchased event ${event.eventId} carries no user — no credits granted`)
+      return null
+    }
+    const pack = packById(event.packId)
+    if (!pack) {
+      console.error(
+        `[billing] credits.purchased event ${event.eventId} references unknown credit pack "${event.packId}" — `
+        + `no credits granted for user ${event.userId}. The customer was charged; fix creditPacks[].`,
+      )
+      return null
+    }
+    // `paymentRef` is the ONLY stable identifier for a payment. Falling back to
+    // `eventId` would defeat idempotency: a webhook retry arrives as a *new*
+    // eventId, so the second delivery would look unique and grant twice. Refuse
+    // the grant and shout instead — the customer was charged, so this needs a
+    // human to reconcile, but a silent double-grant is worse than a loud miss.
+    if (!event.paymentRef) {
+      console.error(
+        `[billing] credits.purchased event ${event.eventId} carries no paymentRef — cannot build a `
+        + `stable idempotency key, so no credits were granted for user ${event.userId} `
+        + `(pack ${event.packId}). Reconcile this payment manually.`,
+      )
+      return null
+    }
+    // The credits server's guarded UPDATE/INSERT requires the account row to
+    // exist; create it without granting the monthly allowance (a purchase is
+    // not a plan entitlement).
+    await db.insert(creditAccount).values({
+      userId: event.userId,
+      balance: 0,
+      periodGrant: 0,
+      lifetimePurchased: 0,
+      lifetimeConsumed: 0,
+      createdAt: new Date(now),
+      updatedAt: new Date(now),
+    }).onConflictDoNothing()
+    const grant: GrantInput = {
+      userId: event.userId,
+      delta: pack.credits,
+      kind: 'purchase',
+      idempotencyKey: `credits:${event.providerId}:${event.paymentRef}`,
+      ref: event.paymentRef,
+      note: `credit pack ${event.packId}`,
+    }
+    await grantCredits(db, grant, now)
+    return null
+  }
+
+  // A refund is checked against the credit ledger first: if it refunds a
+  // credit-pack purchase, it is a clawback and must not fall through to the
+  // lifetime-subscription refund path below.
+  if (event.type === 'purchase.refunded') {
+    const reversed = await reverseCreditPurchase(db, event, now)
+    if (reversed) return null
+  }
+
   const row = await findRowForEvent(db, event)
   if (!row) return null // 无映射的用户/客户 → 忽略
 
@@ -203,6 +393,62 @@ export async function startCheckout(
     mode,
     // 回传给 webhook：这三家没有可预建的 customer，这是把付款归属回本地用户的唯一通道。
     metadata: { userId: user.id, plan, provider: provider.id },
+  })
+}
+
+/**
+ * 开始一次 credit pack 结账：解析 pack → provider 的商品 id，创建托管收银台。
+ *
+ * 与 `startCheckout` 的关键区别：**不写 subscription 表**。Credit pack 是计量
+ * 购买，不授予任何 plan 档位；付款归属完全靠 `metadata.userId` 回传（`credits.purchased`
+ * 用它定位用户）。只读 subscription 行上的 `customerId` 以便复用 Stripe customer，
+ * 但绝不 upsert——否则一个只买 credits 的 free 用户会被记成 `plan: 'free'` 的
+ * subscription 行，与「无订阅」的 entitlement 语义冲突。
+ *
+ * `resolveCreditPack` 是唯一的权限判断：本函数信任调用方传入的 provider 实例，
+ * 但 pack 的合法性与该 provider 是否在卖它，一律由它裁决。 */
+export async function startCreditCheckout(
+  db: DB,
+  provider: PaymentProvider,
+  user: { id: string; email: string },
+  packId: string,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<{ url: string }> {
+  const { env } = await import('@/lib/env')
+  const billingEnv = env as unknown as BillingEnv
+  const pack = packById(packId)
+  if (!pack) throw new Error(`Unknown credit pack: ${packId}`)
+  const resolved = resolveCreditPack(billingEnv, pack, provider.id)
+  if (!resolved.ok) throw new Error(resolved.reason)
+
+  // 只读：复用已有 customer，但绝不写 subscription 行。
+  const rows = await db.select({ customerId: subscription.customerId }).from(subscription)
+    .where(ownedBy(subscription, scopeFromUser(user.id)))
+  const customerId = rows[0]?.customerId ?? null
+
+  return provider.createCheckoutSession({
+    userId: user.id,
+    userEmail: user.email,
+    customerId,
+    productId: resolved.productId,
+    successUrl,
+    cancelUrl,
+    mode: 'payment',
+    // 回传：这三家没有可预建的 customer，这是把付款归属回本地用户的唯一通道。
+    //
+    // `productId` **必须**在这里回传：Stripe 的 `checkout.session.completed` 事件体
+    // 不含 line-item price（除非额外 expand），`translateStripeEvent` 无从得知买了
+    // 什么。没有它就退化成 `classifyPurchase('stripe', null) === 'unknown'`，而这
+    // 笔交易会被当作终身 Pro 授予——credit pack 被静默错授。
+    // `packId` / `kind` 仅供审计与其它 provider 使用，路由只认 `productId`。
+    metadata: {
+      kind: 'credits',
+      packId,
+      productId: resolved.productId,
+      userId: user.id,
+      provider: provider.id,
+    },
   })
 }
 

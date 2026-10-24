@@ -49,6 +49,25 @@ test('Stripe key without webhook secret is an error', () => {
   expect(r.warnings).toEqual([])
 })
 
+// ── CREDITS_ENABLED ────────────────────────────────────────────────────────
+test('a boolean-ish CREDITS_ENABLED is accepted', () => {
+  for (const v of ['true', 'false', 'TRUE', '0', 'on', 'off', 'yes', 'no']) {
+    expect(validateEnv({ ...ok, CREDITS_ENABLED: v }).errors).toEqual([])
+  }
+})
+
+test('an unset or blank CREDITS_ENABLED stays silent', () => {
+  expect(validateEnv({ ...ok, RESEND_API_KEY: 're_x', CREDITS_ENABLED: '' })).toEqual({
+    errors: [],
+    warnings: [],
+  })
+})
+
+test('a typo in CREDITS_ENABLED fails startup instead of silently hiding the feature', () => {
+  const r = validateEnv({ ...ok, RESEND_API_KEY: 're_x', CREDITS_ENABLED: 'flase' })
+  expect(r.errors).toEqual([expect.stringContaining('CREDITS_ENABLED must be true or false')])
+})
+
 // ── AUTH_EMAIL_VERIFY ──────────────────────────────────────────────────────
 test('a boolean-ish AUTH_EMAIL_VERIFY is accepted', () => {
   for (const v of ['true', 'false', 'TRUE', '0', 'on', 'off', 'yes', 'no']) {

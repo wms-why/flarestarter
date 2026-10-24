@@ -18,6 +18,7 @@
  */
 import { tierForProduct } from '../plans'
 import type { DomainEvent } from '../entitlement'
+import { classifyPurchase } from '@/features/credits/credits.core'
 import type { CheckoutInput, PaymentProvider } from '../payment'
 import { PROVIDER_CATALOG } from './catalog'
 import { toEpochMs } from './shared'
@@ -57,7 +58,7 @@ async function mintAccessToken(env: PaypalEnv, fetchImpl: FetchLike): Promise<st
 }
 
 /** Map a raw PayPal `event_type` to the platform's domain vocabulary. */
-export function normalizePaypalEventType(raw: string): DomainEvent['type'] {
+export function normalizePaypalEventType(raw: string): Exclude<DomainEvent['type'], 'credits.purchased'> {
   switch (raw) {
     case 'PAYMENT.CAPTURE.COMPLETED':
     case 'PAYMENT.SALE.COMPLETED':
@@ -299,6 +300,12 @@ export function createPaypalProvider(env: PaypalEnv, fetchImpl: FetchLike = fetc
       const base = { eventId, providerId: 'paypal' as const, userId, customerId: null }
 
       if (type === 'purchase.completed') {
+        // A product id that maps to a credit pack is a credit top-up, not a
+        // lifetime grant — route it to the credits ledger instead.
+        const classified = classifyPurchase('paypal', productId)
+        if (classified.kind === 'credits') {
+          return { eventId, providerId: 'paypal' as const, userId, type: 'credits.purchased', packId: classified.pack.id, paymentRef: orderId }
+        }
         return { ...base, type, plan: plan === 'free' ? 'pro' : plan, productId, paymentRef: orderId }
       }
       if (type === 'purchase.refunded') {

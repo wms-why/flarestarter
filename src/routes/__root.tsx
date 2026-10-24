@@ -33,11 +33,14 @@ export const Route = createRootRoute({
     // cosmetic/optional (theme cookie, header user), so a failure (e.g. a D1
     // blip in getOptionalUser) degrades to defaults instead.
     try {
-      const { theme, themeFromCookie } = await getPreferences()
+      // `getPreferences` is a server fn, so the credits master switch rides along
+      // with the theme instead of this route importing `@/lib/env` directly —
+      // __root is bundled for the client too, and env pulls in `cloudflare:workers`.
+      const { theme, themeFromCookie, creditsEnabled } = await getPreferences()
       const user = await getOptionalUser()
-      return { theme, themeFromCookie, user }
+      return { theme, themeFromCookie, user, creditsEnabled }
     } catch {
-      return { theme: 'dark' as const, themeFromCookie: false, user: null }
+      return { theme: 'dark' as const, themeFromCookie: false, user: null, creditsEnabled: false }
     }
   },
   component: RootComponent,

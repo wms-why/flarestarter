@@ -59,6 +59,14 @@ export async function applyBillingSchema(d1: D1Database): Promise<void> {
   for (const sql of stmts) {
     await d1.prepare(sql).run()
   }
+
+  // `applyDomainEvent` routes a refund through `reverseCreditPurchase`, which
+  // reads `credit_ledger` before deciding whether the refund is a credit
+  // clawback or a lifetime revocation — so the credit tables must exist here
+  // too. The DDL lives in ONE place (the credits helper) rather than being
+  // copied, so a schema change stays a single edit.
+  const { applyCreditsSchema } = await import('@/features/credits/test-helpers')
+  await applyCreditsSchema(d1)
 }
 
 // ---------------------------------------------------------------------------

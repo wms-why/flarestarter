@@ -13,6 +13,7 @@
 import { Creem } from 'creem'
 import type { DomainEvent } from '../entitlement'
 import { asPlan, tierForProduct } from '../plans'
+import { classifyPurchase } from '@/features/credits/credits.core'
 import type { CheckoutInput, PaymentProvider } from '../payment'
 import { PROVIDER_CATALOG } from './catalog'
 import { verifyCreemSignature } from './creem-signature'
@@ -150,6 +151,12 @@ export function createCreemProvider(env: CreemEnv): PaymentProvider {
       }
 
       if (type === 'purchase.completed') {
+        // A product id that maps to a credit pack is a credit top-up, not a
+        // lifetime grant — route it to the credits ledger instead.
+        const classified = classifyPurchase('creem', productId)
+        if (classified.kind === 'credits') {
+          return { eventId, providerId: 'creem' as const, userId, type: 'credits.purchased', packId: classified.pack.id, paymentRef }
+        }
         return { ...base, type, plan: plan === 'free' ? 'pro' : plan, productId, paymentRef }
       }
       if (type === 'purchase.refunded') {

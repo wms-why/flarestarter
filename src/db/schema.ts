@@ -2,6 +2,7 @@
 // 各 feature 的表片段在此 re-export。
 export * from '@/features/auth/auth.schema'
 export * from '@/features/billing/billing.schema'
+export * from '@/features/credits/credits.schema'
 export * from './tables/waitlist'
 export * from '@/features/sponsor/sponsor.schema'
 export * from '@/features/feedback/feedback.schema'

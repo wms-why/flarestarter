@@ -14,6 +14,7 @@ import { eq } from 'drizzle-orm'
 import { createDb } from '@/db/client'
 import { user as userTable, session as sessionTable } from '@/features/auth/auth.schema'
 import { applyAuthSchema, createTestAuth, extractToken, extractCookie } from '@/features/auth/test-helpers'
+import { applyCreditsSchema } from '@/features/credits/test-helpers'
 import { getAdminStats } from './getAdminStats'
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,8 @@ const TEST_ADMIN_EMAILS = 'admin@test.com'
 // ---------------------------------------------------------------------------
 beforeAll(async () => {
   await applyAuthSchema(env.DB)
+  // Credit tables (for the credits section of the admin stats view)
+  await applyCreditsSchema(env.DB)
   // Billing subscription table (for intent 5 stats)
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS "subscription" (

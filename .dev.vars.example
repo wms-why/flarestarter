@@ -20,6 +20,10 @@ EMAIL_FROM=FlareStarter <onboarding@resend.dev>
 # above: without it verification stays off, because the link would never be
 # delivered.
 AUTH_EMAIL_VERIFY=
+# 积分系统总开关：留空 / false 表示关闭——不显示积分页面、导航、首页卡片、
+# 账户页区块和管理端统计；数据层（webhook、cron 补发）照常运行，不会丢账。
+# 设为 true 才启用。详见 docs/features/credits.mdx。
+CREDITS_ENABLED=
 # Optional: Resend audience id for the waitlist (and future newsletter).
 # Leave blank to disable audience sync — signups still save to D1.
 RESEND_AUDIENCE_ID=

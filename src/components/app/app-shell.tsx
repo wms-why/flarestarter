@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, getRouteApi } from '@tanstack/react-router'
-import { Home, Sparkles, Settings, Gauge, Users, Menu, ClipboardList, PanelLeftClose, PanelLeftOpen, Heart, MessageSquare } from 'lucide-react'
+import { Home, Sparkles, Settings, Gauge, Users, Menu, ClipboardList, PanelLeftClose, PanelLeftOpen, Heart, MessageSquare, Coins } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/features/theme/theme-toggle'
@@ -44,7 +44,7 @@ export function AppShell({
   paymentFailed?: boolean
   children: ReactNode
 }) {
-  const { theme } = rootRoute.useLoaderData()
+  const { theme, creditsEnabled } = rootRoute.useLoaderData()
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -86,6 +86,12 @@ export function AppShell({
           <MessageSquare size={18} className="shrink-0" />
           {label(t('feedback.nav'))}
         </Link>
+        {creditsEnabled && (
+          <Link to="/{-$locale}/app/credits" activeProps={{}} className={item(active === 'credits')} title={t('credits.nav')}>
+            <Coins size={18} className="shrink-0" />
+            {label(t('credits.nav'))}
+          </Link>
+        )}
         {grp(t('app.navAccount'))}
         <Link to="/{-$locale}/app/account" activeProps={{}} className={item(active === 'account')} title={t('app.account')}>
           <Settings size={18} className="shrink-0" />
@@ -114,6 +120,12 @@ export function AppShell({
               <MessageSquare size={18} className="shrink-0" />
               {label(t('admin.feedbackAdmin'))}
             </Link>
+            {creditsEnabled && (
+              <Link to="/{-$locale}/admin/credits" activeProps={{}} className={item(active === 'admin-credits')} title={t('credits.adminTitle')}>
+                <Coins size={18} className="shrink-0" />
+                {label(t('credits.adminTitle'))}
+              </Link>
+            )}
           </>
         )}
         <div className="flex-1" />

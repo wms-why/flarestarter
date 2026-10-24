@@ -8,7 +8,7 @@ FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudfla
 
 ## Structure
 
-- `src/features/*` — vertical feature slices, each self-contained (schema / server fns / actions / components): `admin`, `analytics`, `audience`, `auth`, `billing`, `changelog`, `docs`, `email`, `i18n`, `maintenance`, `notifications`, `seo`, `storage`, `theme`, `waitlist`.
+- `src/features/*` — vertical feature slices, each self-contained (schema / server fns / actions / components): `admin`, `analytics`, `audience`, `auth`, `billing`, `changelog`, `credits`, `docs`, `email`, `i18n`, `maintenance`, `notifications`, `seo`, `storage`, `theme`, `waitlist`.
 - `src/routes/{-$locale}/` — file-based routes with an optional locale prefix (`/` = en, `/zh` = zh). Top-level routes (`api`, `sitemap`, `robots`, `docs`) live outside the locale group.
 - `src/components/` — `ui/` primitives + `marketing/` landing + `app/` shell.
 - `src/db/` — Drizzle client + `schema.ts` barrel; tables in `src/db/tables/` and feature `*.schema.ts`.

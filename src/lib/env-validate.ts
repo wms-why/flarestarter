@@ -54,6 +54,9 @@ const envSchema = z
     // Sign-up 邮箱验证开关，默认 true；"false" 让注册用户直接进后台。
     // 值是校验过的布尔字面量，解析见 features/auth/email-verification.ts。
     AUTH_EMAIL_VERIFY: optional,
+    // 积分系统总开关，默认 false（关）：不显示任何积分页面/导航/文案。
+    // 值为校验过的布尔字面量，解析见 features/credits/credits-switch.ts。
+    CREDITS_ENABLED: optional,
     GOOGLE_CLIENT_ID: optional,
     GOOGLE_CLIENT_SECRET: optional,
     GITHUB_CLIENT_ID: optional,
@@ -126,6 +129,17 @@ const envSchema = z
         code: 'custom',
         path: ['AUTH_EMAIL_VERIFY'],
         message: `AUTH_EMAIL_VERIFY must be true or false (got "${env.AUTH_EMAIL_VERIFY}")`,
+      })
+    }
+
+    // Same rule for the credits master switch: "flase" silently reading as the
+    // default would leave the operator staring at a credits UI they believed
+    // they had hidden (or vice versa).
+    if (env.CREDITS_ENABLED && parseBoolSwitch(env.CREDITS_ENABLED) === null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CREDITS_ENABLED'],
+        message: `CREDITS_ENABLED must be true or false (got "${env.CREDITS_ENABLED}")`,
       })
     }
 
