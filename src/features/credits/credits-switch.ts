@@ -11,7 +11,13 @@
  *   - the "Credits" nav item in the app shell and the admin group,
  *   - the quick-action card on the app dashboard,
  *   - the credits section on the account page,
- *   - the credits stat cards on the admin dashboard.
+ *   - the credits stat cards on the admin dashboard,
+ *   - **every credits server fn** (via `assertCreditsEnabled`, see below).
+ *
+ * Hiding a surface is necessary but not sufficient: a server fn is reachable
+ * directly, so each one asserts the switch itself. Adding a new credits server
+ * fn means calling `assertCreditsEnabled` as its first statement — the rule is
+ * also recorded in AGENTS.md.
  *
  * **Default is OFF.** The switch is opt-in (`CREDITS_ENABLED=true`), matching the
  * repo rule that an unset integration degrades to off rather than surprising a
@@ -44,6 +50,30 @@ export interface CreditsEnv {
  */
 export function isCreditsEnabled(e: CreditsEnv): boolean {
   return parseBoolSwitch(e.CREDITS_ENABLED) === true
+}
+
+/**
+ * Throw unless the credits UI is on — the guard every credits server fn calls
+ * before touching the DB.
+ *
+ * **Why hiding is not enough.** A server fn is a network endpoint: hiding a
+ * section only stops the *rendered* button. A hand-crafted POST or a client
+ * that still holds a stale bundle can call `consumeDemoCredits` /
+ * `getCredits` / the admin ledger reads with the switch off. Those would then
+ * create a `credit_account` row for a user whose app has no credits at all,
+ * and hand out ledger data from a feature the operator deliberately removed.
+ *
+ * It lives here rather than in each handler so the rule is one function, and
+ * takes the already-read env so it stays pure (see the module header: client
+ * components import this file and must not pull in `@/lib/env`).
+ *
+ * The error is a plain `Error`, not a redirect: the UI should never have
+ * offered the action, so reaching here is a bug or a forged request. Secrets
+ * in the response are not a concern (the message reveals only that the
+ * feature is off).
+ */
+export function assertCreditsEnabled(e: CreditsEnv): void {
+  if (!isCreditsEnabled(e)) throw new Error('Credits are not enabled on this deployment.')
 }
 
 // NOTE: this module deliberately does NOT export a helper that reads `@/lib/env`

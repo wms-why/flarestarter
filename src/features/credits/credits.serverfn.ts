@@ -35,6 +35,10 @@ export interface CreditsOverview {
  * Everything the credits page needs in one round trip: the account (balance +
  * period), the first ledger page, the pack catalogue, and which providers can
  * actually sell which pack.
+ *
+ * Every handler below asserts the switch first (`assertCreditsEnabled`): the
+ * routes already 404 when it is off, but a server fn is a network endpoint, so
+ * the gate has to be enforced here too, not only in the loader.
  */
 /**
  * Whether the credits feature is switched on, asked over the server-fn boundary.
@@ -56,6 +60,8 @@ export const getCredits = createServerFn({ method: 'GET' })
   .validator((d: { page?: number; pageSize?: number }) => ({ page: clampPage(d?.page), pageSize: clampPageSize(d?.pageSize) }))
   .handler(async ({ data }): Promise<CreditsOverview> => {
     const { env } = await import('@/lib/env')
+    const { assertCreditsEnabled } = await import('./credits-switch')
+    assertCreditsEnabled(env)
     const { createDb } = await import('@/db/client')
     const { readUser } = await import('@/features/auth/readUser.server')
     const { getCreditAccount, listLedger } = await import('./credits.server')
@@ -140,6 +146,8 @@ export const getCredits = createServerFn({ method: 'GET' })
 export const consumeDemoCredits = createServerFn({ method: 'POST' })
   .handler(async (): Promise<{ ok: true; balance: number } | { ok: false; reason: 'insufficient_credits' }> => {
     const { env } = await import('@/lib/env')
+    const { assertCreditsEnabled } = await import('./credits-switch')
+    assertCreditsEnabled(env)
     const { createDb } = await import('@/db/client')
     const { readUser } = await import('@/features/auth/readUser.server')
     const { consumeCredits } = await import('./credits.server')
@@ -176,6 +184,8 @@ export const startCreditPurchase = createServerFn({ method: 'POST' })
   .validator((d: { packId: string; provider: string; locale?: string }) => d)
   .handler(async ({ data }): Promise<{ url: string }> => {
     const { env } = await import('@/lib/env')
+    const { assertCreditsEnabled } = await import('./credits-switch')
+    assertCreditsEnabled(env)
     const { createDb } = await import('@/db/client')
     const { readUser } = await import('@/features/auth/readUser.server')
     const { packById } = await import('./credit-packs')

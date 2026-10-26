@@ -8,7 +8,7 @@
  * half-show it.
  */
 import { describe, expect, test } from 'vitest'
-import { isCreditsEnabled } from './credits-switch'
+import { assertCreditsEnabled, isCreditsEnabled } from './credits-switch'
 
 describe('isCreditsEnabled', () => {
   test('is off when the var is unset — a fresh clone shows no credits UI', () => {
@@ -36,6 +36,28 @@ describe('isCreditsEnabled', () => {
   test('an unrecognised value counts as off — boot validation rejects it, but never guess "on"', () => {
     for (const v of ['ture', 'maybe', 'enabled', '2']) {
       expect(isCreditsEnabled({ CREDITS_ENABLED: v }), v).toBe(false)
+    }
+  })
+})
+
+describe('assertCreditsEnabled', () => {
+  test('throws when the feature is off — hiding the UI is not a security boundary', () => {
+    expect(() => assertCreditsEnabled({})).toThrow(/not enabled/)
+    expect(() => assertCreditsEnabled({ CREDITS_ENABLED: '' })).toThrow(/not enabled/)
+    expect(() => assertCreditsEnabled({ CREDITS_ENABLED: 'false' })).toThrow(/not enabled/)
+  })
+
+  test('is silent when the feature is on', () => {
+    expect(() => assertCreditsEnabled({ CREDITS_ENABLED: 'true' })).not.toThrow()
+    expect(() => assertCreditsEnabled({ CREDITS_ENABLED: '1' })).not.toThrow()
+  })
+
+  test('agrees with isCreditsEnabled on every input', () => {
+    // The two must never disagree, or a surface would be rendered while its
+    // endpoint refuses (or vice versa).
+    for (const v of [undefined, '', '  ', 'true', '1', 'on', 'yes', 'false', '0', 'off', 'no', 'ture']) {
+      const e = { CREDITS_ENABLED: v }
+      expect(isCreditsEnabled(e)).toBe(!(() => { try { assertCreditsEnabled(e); return false } catch { return true } })())
     }
   })
 })

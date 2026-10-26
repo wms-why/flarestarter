@@ -21,10 +21,14 @@ CREDITS_ENABLED=true    # 启用;留空 / false = 关闭(默认)
 | `/app/credits`、`/admin/credits` | 抛 `notFound()`,URL 不存在 |
 | 侧边栏「积分」项、管理端「积分」项 | 不渲染 |
 | 首页快速入口卡 | 不渲染 |
-| 账户页积分区块 | 不渲染(且**不再发起** `getCredits` 的 D1 查询) |
+| 账户页积分区块(含最近 5 条账本) | 不渲染(且**不再发起** `getCredits` 的 D1 查询) |
 | 管理端统计里的 3 张积分卡 | 不渲染(`getAdminStats` 也不再查积分表) |
+| `getCredits`、`consumeDemoCredits`、`startCreditPurchase` | 调用即抛错(`assertCreditsEnabled`) |
+| `getAdminCredits`、`getAdminLedger`、`adjustCredits` | 先 `assertAdmin`(非管理员仍 404),再验开关 |
 
-**开关只管「人看到什么」,不管账。** 数据层照常运行:webhook 仍会入账,`reconcileAccount` 仍能对账,退款回冲仍会去读账本——因为如果曾经在有积分时发过额度,关掉开关绝不能把已有的账本行变成孤儿,否则退款就扣不回来了。
+**「藏起来」不等于「关掉」。** server fn 是网络端点,隐藏按钮只挡住了*渲染出来的*入口——手搓一个 POST、或客户端还握着旧 bundle,都能在开关关闭时调用 `consumeDemoCredits` / `getCredits` / 管理端账本查询。那会给一个根本没有积分功能的用户凭空建出 `credit_account` 行,并把运维已经下线的账本数据漏出去。所以每个积分 server fn 的**第一句**就是 `assertCreditsEnabled(env)`(管理端经 `assertCreditsAdmin`),路由的 `notFound()` 不能替代它。
+
+**开关只管「人看到什么」和「能不能调」,不管账。** 数据层照常运行:`credits.server.ts` 里**不做任何开关判断**——webhook 仍会入账,`reconcileAccount` 仍能对账,退款回冲仍会去读账本。因为如果曾经在有积分时发过额度,关掉开关绝不能把已有的账本行变成孤儿,否则退款就扣不回来了。
 
 配置了非法值(如 `flase`)会在启动时**直接报错**,而不是悄悄当成某个默认值:`CREDITS_ENABLED must be true or false`。解析逻辑在 `features/credits/credits-switch.ts`,与 `AUTH_EMAIL_VERIFY` 共用 `lib/bool-switch.ts`。
 

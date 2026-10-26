@@ -1,7 +1,8 @@
 /**
  * Credits admin server fns — account listing, ledger inspection and manual
- * adjustments. All gated by `assertAdmin` (404 for non-admins, so the console
- * stays invisible), matching the rest of `src/features/admin`.
+ * adjustments. All gated by `assertCreditsAdmin` (admin role *and* the
+ * `CREDITS_ENABLED` switch; 404 for non-admins so the console stays invisible),
+ * matching the rest of `src/features/admin`.
  *
  * Written in a separate module so vendor SDKs and `@/lib/env` stay out of any
  * route file that imports these.
@@ -37,6 +38,25 @@ export interface AdminCreditLedgerRow {
   createdAt: Date | string
 }
 
+/**
+ * Gate for every admin credits handler: admin role **and** the credits switch.
+ *
+ * Ordered deliberately — `assertAdmin` first so a non-admin still gets a 404
+ * rather than learning whether the deployment has credits turned on.
+ *
+ * The switch check is not redundant with the route loader: `/admin/credits`
+ * 404s when credits are off, but these server fns are separate endpoints. With
+ * the switch off the operator has removed the feature; an admin console that
+ * still answers ledger queries (or accepts manual adjustments) contradicts that.
+ */
+async function assertCreditsAdmin(): Promise<{ id: string }> {
+  const admin = await assertAdmin()
+  const { assertCreditsEnabled } = await import('./credits-switch')
+  const { env } = await import('@/lib/env')
+  assertCreditsEnabled(env)
+  return admin
+}
+
 export const getAdminCredits = createServerFn({ method: 'GET' })
   .validator((d: { q?: string; page?: number; pageSize?: number }) => ({
     q: typeof d?.q === 'string' ? d.q.slice(0, 200) : undefined,
@@ -46,7 +66,7 @@ export const getAdminCredits = createServerFn({ method: 'GET' })
   .handler(async ({ data }): Promise<{ rows: AdminCreditAccountRow[]; total: number }> => {
     // Gate every admin read ourselves rather than trusting the parent route
     // loader — a server fn is a network endpoint and can be reached directly.
-    await assertAdmin()
+    await assertCreditsAdmin()
     const { createDb } = await import('@/db/client')
     const db = createDb((await import('@/lib/env')).env.DB)
 
@@ -87,7 +107,7 @@ export const getAdminLedger = createServerFn({ method: 'GET' })
     pageSize: clampPageSize(d?.pageSize),
   }))
   .handler(async ({ data }): Promise<{ rows: AdminCreditLedgerRow[]; total: number }> => {
-    await assertAdmin()
+    await assertCreditsAdmin()
     const { createDb } = await import('@/db/client')
     const db = createDb((await import('@/lib/env')).env.DB)
 
@@ -127,7 +147,7 @@ export const getAdminLedger = createServerFn({ method: 'GET' })
 export const adjustCredits = createServerFn({ method: 'POST' })
   .validator((d: { userId: string; delta: number; note: string }) => d)
   .handler(async ({ data }): Promise<void> => {
-    const admin = await assertAdmin()
+    const admin = await assertCreditsAdmin()
 
     if (!Number.isFinite(data.delta) || !Number.isInteger(data.delta)) {
       throw new Error('Delta must be a whole number of credits.')

@@ -351,6 +351,22 @@ describe('CREDITS_ENABLED switch', () => {
       mutableEnv.CREDITS_ENABLED = original
     }
   })
+
+  test('the endpoint guard refuses reads while the data layer stays available', async () => {
+    // The boundary the switch draws: the *data layer* (`grantCredits`,
+    // `consumeCredits`, refunds) keeps working so the books never go stale,
+    // but the *entry points* refuse. Server fns call `assertCreditsEnabled`;
+    // this asserts the guard they rely on actually fires on the live env.
+    const mutableEnv = env as unknown as { CREDITS_ENABLED?: string }
+    const original = mutableEnv.CREDITS_ENABLED
+    mutableEnv.CREDITS_ENABLED = ''
+    try {
+      const { assertCreditsEnabled } = await import('./credits-switch')
+      expect(() => assertCreditsEnabled(env)).toThrow(/not enabled/)
+    } finally {
+      mutableEnv.CREDITS_ENABLED = original
+    }
+  })
 })
 
 // Keep the constants referenced so the intent stays obvious.
