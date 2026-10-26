@@ -2,21 +2,16 @@ import { useTranslation } from '@/features/i18n/provider'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { fmtDate } from '@/lib/format-date'
+import { ledgerKindLabel } from '../credits.core'
 import type { CreditLedgerRow } from '../credits.schema'
-
-/** Presentational labels for ledger `kind` values. */
-const KIND_LABEL: Record<CreditLedgerRow['kind'], string> = {
-  'grant.monthly': 'Monthly grant',
-  'grant.upgrade': 'Upgrade top-up',
-  purchase: 'Purchase',
-  consume: 'Consumed',
-  refund: 'Refund',
-  adjust: 'Adjustment',
-}
 
 /**
  * Append-only ledger table: signed delta (green for credits in, red for out),
  * the resulting balance, the reference and the timestamp.
+ *
+ * The kind label comes from `ledgerKindLabel`, which maps the DB string to an
+ * i18n key — the table no longer hardcodes English labels, so the zh page
+ * shows 月度发放 / 消费 / 退款 instead of `grant.monthly` / `consume`.
  */
 export function CreditLedgerTable({ rows }: { rows: CreditLedgerRow[] }) {
   const { t } = useTranslation()
@@ -43,7 +38,7 @@ export function CreditLedgerTable({ rows }: { rows: CreditLedgerRow[] }) {
             <TableRow key={row.id}>
               <TableCell>
                 <Badge variant={row.delta >= 0 ? 'ok' : 'warn'}>
-                  {KIND_LABEL[row.kind] ?? row.kind}
+                  {ledgerKindLabel(row.kind, t)}
                 </Badge>
               </TableCell>
               <TableCell>

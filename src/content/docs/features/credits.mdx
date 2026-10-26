@@ -110,12 +110,16 @@ import { consumeCredits } from '@/features/credits/credits.server'
 const res = await consumeCredits(db, {
   userId,
   cost: 10,
-  ref: taskId,        // 任务 id，用于对账
+  ref: taskId,        // 任务 id，同时就是幂等键
   note: 'transcribe',
 }, Date.now())
 if (!res.ok) throw new Error('not enough credits')
 // res.balanceAfter 是扣减后的余额
 ```
+
+**幂等:传 `ref`,不要靠默认值。** `ref` 是这笔消费对应的业务对象 id(任务 id、作业 id、请求 id),它会自动变成幂等键 `consume:<userId>:<ref>`——所以 webhook 重投、用户双击、客户端重试都**只扣一次**。
+
+反过来,没有 `ref` 的调用(**没有可去重的业务对象**,比如演示任务)每次都是全新一笔,会重复扣费。这类调用必须**显式**传 `idempotencyKey` 表明「我知道这一笔不去重」。之前的实现会静默生成一个随机键,让「忘了传」看起来安全、实际在重复扣钱——现在这个行为被移到了显式参数上。
 
 > 服务器函数要放在单独模块(`credits.serverfn.ts`)里,路由文件同时会被编译进客户端 bundle;直接把 `credits.server` 引入 loader 会把 `@/lib/env`、厂商 SDK 拖进浏览器。见 `billing.serverfn.ts` 的同名说明。
 

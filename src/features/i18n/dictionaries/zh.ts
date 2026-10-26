@@ -142,6 +142,8 @@ export const zh: Dict = {
     buy: '购买', demoTask: '运行演示任务', demoTaskHint: '本次消耗 {cost} 积分，用于演示按量功能如何扣减积分。',
     demoTaskDone: '演示任务已完成', insufficient: '积分不足。购买充值包或等待下月发放。',
     history: '历史', kind: '类型', delta: '变动', after: '变动后余额', ref: '参考号', period: '时间',
+    kindMonthly: '月度发放', kindUpgrade: '升级补差', kindPurchase: '购买',
+    kindConsume: '消费', kindRefund: '退款', kindAdjust: '调整', kindOther: '其他',
     adminTitle: '积分', adminSub: '每一次余额与账本变动。',
     adjust: '调整', adjustDelta: '金额（+/-）', adjustNote: '备注', adjustSubmit: '提交', adjustInvalid: '请输入非零金额。',
     purchaseSuccess: '已收到购买——你的积分稍后就会更新。', purchaseCancel: '购买已取消。',

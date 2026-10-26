@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { fmtDateTime } from '@/lib/format-date'
 import { getAdminCredits, getAdminLedger, adjustCredits, type AdminCreditAccountRow } from '@/features/credits/admin.serverfn'
 import { creditsFeatureEnabled } from '@/features/credits/credits.serverfn'
+import { ledgerKindLabel } from '@/features/credits/credits.core'
 
 interface CreditsAdminSearch {
   q?: string
@@ -207,7 +208,7 @@ function AdminCreditsPage() {
             ) : ledger.rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>
-                  <Badge variant={row.delta >= 0 ? 'ok' : 'warn'}>{row.kind}</Badge>
+                  <Badge variant={row.delta >= 0 ? 'ok' : 'warn'}>{ledgerKindLabel(row.kind, t)}</Badge>
                 </TableCell>
                 <TableCell>
                   <span className="font-mono font-semibold tabular-nums" style={{ color: row.delta >= 0 ? 'var(--success)' : 'var(--destructive)' }}>

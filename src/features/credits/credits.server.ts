@@ -46,8 +46,13 @@ export interface GrantInput {
 export interface ConsumeInput {
   userId: string
   cost: number
-  idempotencyKey?: string
+  /**
+   * Stable id of the unit of work (task id, job id, request id). When set, it
+   * doubles as the idempotency key, so a retry cannot charge twice.
+   */
   ref?: string | null
+  /** Explicit idempotency key for a charge that has no stable `ref`. */
+  idempotencyKey?: string
   note?: string | null
 }
 
@@ -343,19 +348,45 @@ export async function grantCredits(
 }
 
 /**
+ * Build the idempotency key for one unit of work.
+ *
+ * A metered action is identified by *what it charged for*, not by *when the
+ * request happened*: a stable `ref` (task id, job id, request id) makes a retry
+ * or a double-click collapse into the caller's ledger row instead of charging
+ * twice.
+ *
+ * `ref` is optional because some callers genuinely charge for an action with no
+ * persisted object (the demo task). Those get a per-call random key — which is
+ * *not* idempotent — so they must say so explicitly by passing
+ * `idempotencyKey`. The old behaviour invented this random key silently, which
+ * turned a forgotten key into a silent double charge.
+ */
+export function consumeIdempotencyKey(input: { userId: string; ref?: string | null }): string {
+  return input.ref
+    ? `consume:${input.userId}:${input.ref}`
+    : `consume:${input.userId}:${crypto.randomUUID()}`
+}
+
+/**
  * Consume credits for one unit of work.
  *
  * Returns `ok: false` with `insufficient_credits` — and leaves no ledger row and
  * no balance change — when the guarded UPDATE would have overdrafted.
+ *
+ * **Idempotency.** A non-empty `ref` is the natural idempotency key
+ * (`consume:<userId>:<ref>`), so retrying the same unit of work never charges
+ * twice. Callers whose charge has no stable reference (nothing to dedupe on)
+ * must pass an explicit `idempotencyKey`; this function no longer invents one
+ * silently, because that made an omitted key look safe while double-charging.
  */
 export async function consumeCredits(
   db: DB,
   input: ConsumeInput,
   now: number,
 ): Promise<ConsumeResult> {
+  if (!(input.cost > 0)) throw new Error('consumeCredits: cost must be positive')
   const delta = -input.cost
-  const idempotencyKey = input.idempotencyKey
-    ?? (input.cost > 0 ? `consume:${input.userId}:${crypto.randomUUID()}` : undefined)
+  const idempotencyKey = input.idempotencyKey ?? consumeIdempotencyKey(input)
   if (!idempotencyKey) throw new Error('consumeCredits: cost must be positive')
 
   const result = await applyCreditDelta(db, {

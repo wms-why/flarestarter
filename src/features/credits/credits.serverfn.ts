@@ -129,6 +129,11 @@ export const getCredits = createServerFn({ method: 'GET' })
 /**
  * The metered demo task: consumes a fixed cost from the caller's account.
  *
+ * The demo has no persisted object to dedupe on, so it passes an explicit
+ * `idempotencyKey` — one per click. That is the deliberate "charge every time"
+ * case; a real metered feature keys on its task id (`ref`) instead so retries
+ * are free. See `consumeCredits` for the rule.
+ *
  * Returns `{ ok: false, reason: 'insufficient_credits' }` rather than throwing
  * so the page can render a specific inline message instead of a generic error.
  */
@@ -145,7 +150,14 @@ export const consumeDemoCredits = createServerFn({ method: 'POST' })
 
     const res = await consumeCredits(
       createDb(env.DB),
-      { userId: u.id, cost: DEMO_TASK_COST, ref: null, note: 'demo task' },
+      {
+        userId: u.id,
+        cost: DEMO_TASK_COST,
+        ref: null,
+        // One click = one charge, no dedupe target.
+        idempotencyKey: `consume:${u.id}:demo:${crypto.randomUUID()}`,
+        note: 'demo task',
+      },
       Date.now(),
     )
     if (res.ok) return { ok: true, balance: res.balanceAfter }

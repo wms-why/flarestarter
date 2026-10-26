@@ -157,6 +157,8 @@ export const en = {
     buy: 'Buy', demoTask: 'Run demo task', demoTaskHint: 'This costs {cost} credits and shows how a metered feature consumes credits.',
     demoTaskDone: 'Demo task done', insufficient: 'Not enough credits. Buy a pack or wait for the next monthly grant.',
     history: 'History', kind: 'Type', delta: 'Change', after: 'Balance after', ref: 'Reference', period: 'Period',
+    kindMonthly: 'Monthly grant', kindUpgrade: 'Upgrade top-up', kindPurchase: 'Purchase',
+    kindConsume: 'Consumed', kindRefund: 'Refund', kindAdjust: 'Adjustment', kindOther: 'Other',
     adminTitle: 'Credits', adminSub: 'Every balance and ledger movement.',
     adjust: 'Adjust', adjustDelta: 'Amount (+/-)', adjustNote: 'Note', adjustSubmit: 'Apply', adjustInvalid: 'Enter a non-zero amount.',
     purchaseSuccess: 'Purchase received — your credits will update shortly.', purchaseCancel: 'Purchase cancelled.',

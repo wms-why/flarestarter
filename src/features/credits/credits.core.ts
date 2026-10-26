@@ -19,6 +19,49 @@ import { packForProduct } from './credit-packs'
 export const DEMO_TASK_COST = 5
 
 /**
+ * Every ledger `kind`, in the order a reader expects to scan them.
+ *
+ * The DB stores these as bare strings. This list is the runtime mirror used by
+ * the UI to turn a row's `kind` into an i18n key, so a new kind added to the
+ * schema fails to render as a raw identifier rather than silently showing
+ * English. Keep it in sync with `CreditLedgerKind`.
+ */
+export const CREDIT_LEDGER_KINDS = [
+  'grant.monthly',
+  'grant.upgrade',
+  'purchase',
+  'consume',
+  'refund',
+  'adjust',
+] as const
+
+export type CreditLedgerKindName = (typeof CREDIT_LEDGER_KINDS)[number]
+
+/** i18n key prefix for a ledger kind — `credits.kindConsume` etc. */
+const LEDGER_KIND_I18N: Record<CreditLedgerKindName, string> = {
+  'grant.monthly': 'credits.kindMonthly',
+  'grant.upgrade': 'credits.kindUpgrade',
+  purchase: 'credits.kindPurchase',
+  consume: 'credits.kindConsume',
+  refund: 'credits.kindRefund',
+  adjust: 'credits.kindAdjust',
+}
+
+/**
+ * Translate a ledger kind for display.
+ *
+ * `t` is passed in rather than imported so this stays pure and node-testable
+ * (the table component and the admin console share this one mapping). An
+ * unrecognised kind — a row written by a newer deploy, or a hand-written test
+ * fixture — falls back to `credits.kindOther` instead of leaking the raw DB
+ * string into the UI.
+ */
+export function ledgerKindLabel(kind: string, t: (key: string) => string): string {
+  const key = LEDGER_KIND_I18N[kind as CreditLedgerKindName]
+  return t(key ?? 'credits.kindOther')
+}
+
+/**
  * UTC calendar month as `YYYY-MM`.
  *
  * The period is UTC by design: grants are accounted per calendar month, and

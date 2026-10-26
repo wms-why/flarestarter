@@ -20,6 +20,7 @@ import {
   getCreditAccount,
   grantCredits,
   consumeCredits,
+  consumeIdempotencyKey,
   listLedger,
   reconcileAccount,
 } from './credits.server'
@@ -354,3 +355,79 @@ describe('CREDITS_ENABLED switch', () => {
 
 // Keep the constants referenced so the intent stays obvious.
 void DAY
+
+// ---------------------------------------------------------------------------
+// 11. consume idempotency key: a ref dedupes, a missing ref does not
+// ---------------------------------------------------------------------------
+describe('11. consume idempotency key', () => {
+  test('a stable ref makes a retry free — one ledger row, one charge', async () => {
+    const db = createDb(env.DB)
+    const userId = `ref-${crypto.randomUUID()}`
+    await seedCreditUser(db, { userId, balance: 50 })
+    const ref = `task-${crypto.randomUUID()}`
+
+    const first = await consumeCredits(db, { userId, cost: 10, ref, note: 'transcribe' }, OCTOBER)
+    // The caller retries the same unit of work (webhook redelivery, double
+    // submit). It must not be charged again.
+    const retry = await consumeCredits(db, { userId, cost: 10, ref, note: 'transcribe' }, OCTOBER)
+
+    expect(first.ok).toBe(true)
+    expect(retry.ok).toBe(true)
+    if (first.ok && retry.ok) expect(retry.balanceAfter).toBe(first.balanceAfter)
+
+    // `seedCreditUser` writes the opening balance as one `adjust` row, so look
+    // only at the consumption rows.
+    const rows = await db.select().from(creditLedger).where(eq(creditLedger.userId, userId))
+    const consumes = rows.filter((r) => r.kind === 'consume')
+    expect(consumes).toHaveLength(1)
+    expect(consumes[0]?.ref).toBe(ref)
+    expect(consumes[0]?.delta).toBe(-10)
+
+    const acct = await db.select().from(creditAccount).where(eq(creditAccount.userId, userId))
+    expect(acct[0]?.balance).toBe(40)
+  })
+
+  test('different refs charge separately', async () => {
+    const db = createDb(env.DB)
+    const userId = `ref2-${crypto.randomUUID()}`
+    await seedCreditUser(db, { userId, balance: 50 })
+
+    await consumeCredits(db, { userId, cost: 10, ref: 'task-a' }, OCTOBER)
+    await consumeCredits(db, { userId, cost: 10, ref: 'task-b' }, OCTOBER)
+
+    const acct = await db.select().from(creditAccount).where(eq(creditAccount.userId, userId))
+    expect(acct[0]?.balance).toBe(30)
+  })
+
+  test('a charge with no ref and no explicit key still charges every call', async () => {
+    // The documented escape hatch (the demo task does this deliberately): there
+    // is no unit of work to dedupe on, so each call is its own charge.
+    const db = createDb(env.DB)
+    const userId = `noref-${crypto.randomUUID()}`
+    await seedCreditUser(db, { userId, balance: 50 })
+
+    await consumeCredits(db, { userId, cost: 10 }, OCTOBER)
+    await consumeCredits(db, { userId, cost: 10 }, OCTOBER)
+
+    const acct = await db.select().from(creditAccount).where(eq(creditAccount.userId, userId))
+    expect(acct[0]?.balance).toBe(30)
+  })
+
+  test('consumeIdempotencyKey derives the same key from the same ref', () => {
+    const a = consumeIdempotencyKey({ userId: 'u1', ref: 'task-1' })
+    const b = consumeIdempotencyKey({ userId: 'u1', ref: 'task-1' })
+    expect(a).toBe('consume:u1:task-1')
+    expect(a).toBe(b)
+    // No ref → a fresh random key, i.e. no dedupe. Documented, not accidental.
+    expect(consumeIdempotencyKey({ userId: 'u1', ref: null }))
+      .not.toBe(consumeIdempotencyKey({ userId: 'u1', ref: null }))
+  })
+
+  test('a non-positive cost is refused', async () => {
+    const db = createDb(env.DB)
+    const userId = `bad-${crypto.randomUUID()}`
+    await seedCreditUser(db, { userId, balance: 10 })
+    await expect(consumeCredits(db, { userId, cost: 0 }, OCTOBER)).rejects.toThrow(/positive/)
+    await expect(consumeCredits(db, { userId, cost: -5 }, OCTOBER)).rejects.toThrow(/positive/)
+  })
+})

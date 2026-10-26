@@ -6,9 +6,11 @@
  */
 import { describe, expect, test } from 'vitest'
 import {
+  CREDIT_LEDGER_KINDS,
   DEMO_TASK_COST,
   classifyPurchase,
   effectivePlanForCredits,
+  ledgerKindLabel,
   monthlyGrantFor,
   periodKeyFor,
   resolveCreditPack,
@@ -224,5 +226,35 @@ describe('constants and pack helpers', () => {
   test('configuredPackProviders reflects empty shipped config', () => {
     // The shipped packs have all-empty productIds, so nothing is configured yet.
     expect(configuredPackProviders()).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ledger kind → i18n label
+// ---------------------------------------------------------------------------
+describe('ledgerKindLabel', () => {
+  const t = (key: string) => `t:${key}`
+
+  test('every schema kind maps to its own credits.* key', () => {
+    const keys = CREDIT_LEDGER_KINDS.map((kind) => ledgerKindLabel(kind, t))
+    expect(keys).toEqual([
+      't:credits.kindMonthly',
+      't:credits.kindUpgrade',
+      't:credits.kindPurchase',
+      't:credits.kindConsume',
+      't:credits.kindRefund',
+      't:credits.kindAdjust',
+    ])
+    // No two kinds collapse onto one label — a shared key would be a copy/paste bug.
+    expect(new Set(keys).size).toBe(CREDIT_LEDGER_KINDS.length)
+  })
+
+  test('the consume kind reads as consumption, not as a raw identifier', () => {
+    expect(ledgerKindLabel('consume', t)).toBe('t:credits.kindConsume')
+  })
+
+  test('an unknown kind falls back to kindOther instead of leaking the DB string', () => {
+    expect(ledgerKindLabel('grant.bonus', t)).toBe('t:credits.kindOther')
+    expect(ledgerKindLabel('', t)).toBe('t:credits.kindOther')
   })
 })
