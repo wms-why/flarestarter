@@ -38,13 +38,22 @@ jobs:
           CF_PROD_D1_ID: ${{ vars.CF_PROD_D1_ID }}
           CF_PROD_KV_ID: ${{ vars.CF_PROD_KV_ID }}
           CF_PROD_DOMAIN: ${{ vars.CF_PROD_DOMAIN }}
+          # 下游 fork 后改这一个 Variable 就能部署到自己的 worker（默认 flarestarter → *-production）
+          CF_WORKER_NAME: ${{ vars.CF_WORKER_NAME }}
         run: node .github/scripts/gen-wrangler.mjs
       # @cloudflare/vite-plugin 在 build 时根据 CLOUDFLARE_ENV 把对应环境的 bindings
       # 烘焙进 dist/server/wrangler.json；deploy 读取该产物，故环境在 build 时选定。
+      # 品牌是 build-time 值（vite define 内联，见 src/lib/brand.ts），必须在 build 这一步给。
+      # 每个都带 `|| '模板默认值'` 兜底：没配 Variables 的仓库产出与改造前完全一致的站点，
+      # 而不是因为空串变成无名/白牌站点——「没配」和「故意留空」不该是同一个结果。
       - if: steps.guard.outputs.enabled == 'true'
         run: pnpm build
         env:
           CLOUDFLARE_ENV: production
+          APP_NAME: ${{ vars.APP_NAME || 'FlareStarter' }}
+          APP_URL: ${{ vars.APP_URL || 'https://flarestarter.example.com' }}
+          APP_GITHUB_URL: ${{ vars.APP_GITHUB_URL || 'https://github.com/flarestarter/flarestarter' }}
+          APP_LEGAL_NAME: ${{ vars.APP_LEGAL_NAME || vars.APP_NAME || 'FlareStarter' }}
       - name: Deploy to Cloudflare
         if: steps.guard.outputs.enabled == 'true'
         uses: cloudflare/wrangler-action@v4

@@ -8,6 +8,7 @@ import { LangSwitch } from '@/features/i18n/lang-switch'
 import { useTranslation } from '@/features/i18n/provider'
 import { PaymentFailedBanner } from '@/features/billing/components/payment-failed-banner'
 import { UserMenu } from '@/components/app/user-menu'
+import { APP_NAME } from '@/lib/brand'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -176,7 +177,7 @@ export function AppShell({
           </button>
           <span className="app-crumb">
             <span className="hidden md:inline">
-              FlareStarter <span className="mx-1.5 text-fg-3">/</span>
+              {APP_NAME} <span className="mx-1.5 text-fg-3">/</span>
             </span>
             <b>{crumb}</b>
           </span>

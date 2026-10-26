@@ -1,4 +1,5 @@
 import { dictionaries, type Locale } from '@/features/i18n/locale'
+import { APP_NAME } from '@/lib/brand'
 
 /** auth 工具页共用 head：per-page title（不再回落全站默认标题）+ noindex
  *  （/login 与 /zh/login 互为无标注的重复内容，工具页无搜索价值，直接不进索引）。 */
@@ -9,7 +10,7 @@ export function authPageHead(
   const locale: Locale = (params as { locale?: string })?.locale === 'zh' ? 'zh' : 'en'
   return {
     meta: [
-      { title: `${dictionaries[locale].auth[key]} — FlareStarter` },
+      { title: `${dictionaries[locale].auth[key]} — ${APP_NAME}` },
       { name: 'robots', content: 'noindex' },
     ],
   }

@@ -1,7 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from '@/features/i18n/provider'
-
-const GITHUB_URL = 'https://github.com/flarestarter/flarestarter'
+import { APP_GITHUB_URL as GITHUB_URL, APP_NAME } from '@/lib/brand'
 
 const BTN_CLASS =
   'inline-flex h-12 shrink-0 items-center border-l border-border bg-primary px-[18px] text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary-hover'
@@ -18,7 +17,7 @@ export function CTA({ loggedIn }: { loggedIn: boolean }) {
       <div className="inline-flex max-w-full items-center overflow-hidden rounded-md border border-border bg-card shadow-[var(--shadow-md)]">
         <span className="font-mono inline-flex h-12 min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap px-4 text-sm text-fg-2">
           <span className="text-primary">$</span>
-          git clone {GITHUB_URL}
+          git clone {GITHUB_URL || `<${APP_NAME}>`}
         </span>
         {loggedIn ? (
           <Link to="/{-$locale}/app" className={BTN_CLASS}>

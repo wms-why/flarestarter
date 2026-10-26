@@ -28,7 +28,7 @@ description: 了解 FlareStarter 需要配置哪些环境变量以及它们的�
 ## 构建期变量(Vite,不是 Cloudflare env)
 
 有一类变量在 **`vite build` 的时候**就被读出来、**内联进产物**,而不是等 worker 运行时才注入。
-目前只有一个:
+目前是品牌配置和 GA:
 
 <Callout type="info">
 这类变量请写在 `.env`(本地,参考仓库里的 `.env.example`)或 CI 的环境变量里,**不要**写进
@@ -44,6 +44,43 @@ description: 了解 FlareStarter 需要配置哪些环境变量以及它们的�
     },
   }}
 />
+
+### 品牌
+
+**改品牌只需要改这 4 个变量**,不必碰任何组件——所有 UI 文案、页面标题、SEO 标签、
+结构化数据、PayPal `brand_name`、邮件发件人显示名和 web manifest 都从
+`src/lib/brand.ts` 读。详见 [品牌与元数据](/docs/customization/branding)。
+
+<TypeTable
+  type={{
+    APP_NAME: {
+      description: '产品名:UI 标题、SEO、邮件发件人显示名、PayPal `brand_name`、结构化数据、web manifest。i18n 字典里的 `{app}` 占位符全局解析成这个值。留空 = `FlareStarter`。',
+      type: 'string',
+      default: 'FlareStarter',
+    },
+    APP_URL: {
+      description: '站点根 URL:canonical / `og:url` 的 origin 优先取它,还是模板的 `*.example.com` 时回落到 `BETTER_AUTH_URL`。认证跳转仍由 `BETTER_AUTH_URL` 决定。留空 = `https://flarestarter.example.com`。',
+      type: 'string',
+      default: 'https://flarestarter.example.com',
+    },
+    APP_GITHUB_URL: {
+      description: '页头/页脚/docs 导航里的仓库链接(以及 `git clone` 提示)。留空 = 模板仓库;设成 `-` = **不展示**仓库链接(所有渲染处都判空,不会留下死链)。',
+      type: 'string',
+      default: 'https://github.com/flarestarter/flarestarter',
+    },
+    APP_LEGAL_NAME: {
+      description: '法务页与版权行用的法定主体名。留空 = 跟随 `APP_NAME`。',
+      type: 'string',
+      default: '同 APP_NAME',
+    },
+  }}
+/>
+
+<Callout type="warn">
+`en.ts` / `zh.ts` 里的 `common.appName` 值是占位符 `'{app}'`,**不要**把它改回字面量。
+`translate()` 会把 `{app}` 解析成 `APP_NAME`(见 `src/features/i18n/locale.ts` 的
+`GLOBAL_PARAMS`),这样下游改名时两个字典都不用动,同步上游也不会冲突。
+</Callout>
 
 ## 数据库 (D1)
 无需在此处配置数据库账号密码。Cloudflare D1 使用绑定的 Database ID，详情请见 [部署到 Cloudflare](/docs/getting-started/deploy)。

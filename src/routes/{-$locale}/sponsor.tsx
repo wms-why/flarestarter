@@ -9,6 +9,7 @@ import { SponsorsWall } from '@/features/sponsor/components/sponsors-wall'
 import { getSponsorConfig, getSponsorManageLink } from '@/features/sponsor/actions'
 import { useTranslation } from '@/features/i18n/provider'
 import type { Locale } from '@/features/i18n/locale'
+import { APP_NAME } from '@/lib/brand'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -29,7 +30,7 @@ export const Route = createFileRoute('/{-$locale}/sponsor')({
       origin,
       locale,
       path: '/sponsor',
-      title: locale === 'zh' ? '赞助 — FlareStarter' : 'Sponsor — FlareStarter',
+      title: locale === 'zh' ? `赞助 — ${APP_NAME}` : `Sponsor — ${APP_NAME}`,
       description:
         locale === 'zh'
           ? '赞助这个开源项目，一次性或按月均可。'

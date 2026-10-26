@@ -11,6 +11,7 @@
  */
 import { useEffect } from 'react'
 import type { ErrorComponentProps } from '@tanstack/react-router'
+import { APP_NAME } from '@/lib/brand'
 // Typed against the router's own props rather than a hand-written shape: the
 // router intersects these with `preload?` (ErrorRouteComponent), so the narrower
 // local shape this replaced stopped satisfying the contract on a version bump.
@@ -20,7 +21,7 @@ export function ErrorPage({ error, reset }: ErrorComponentProps) {
   // document.title, not a rendered <title>: the root head() already emits one,
   // and React 19 hoisting would append a second (invalid, and browsers keep the first).
   useEffect(() => {
-    document.title = 'Something went wrong — FlareStarter'
+    document.title = `Something went wrong — ${APP_NAME}`
   }, [])
   return (
     <main className="grid-bg flex min-h-screen flex-col items-center justify-center gap-[18px] p-8 text-center">

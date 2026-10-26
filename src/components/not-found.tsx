@@ -4,11 +4,13 @@
  * （`/` 始终解析到默认语言；用普通 anchor 避免 typed-route 约束，404 整页跳转可接受）。
  */
 import { useEffect } from 'react'
+import { APP_NAME } from '@/lib/brand'
+
 export function NotFound() {
   // document.title, not a rendered <title>: the root head() already emits one,
   // and React 19 hoisting would append a second (invalid, and browsers keep the first).
   useEffect(() => {
-    document.title = 'Page not found — FlareStarter'
+    document.title = `Page not found — ${APP_NAME}`
   }, [])
   return (
     <main className="grid-bg flex min-h-screen flex-col items-center justify-center gap-[18px] p-8 text-center">

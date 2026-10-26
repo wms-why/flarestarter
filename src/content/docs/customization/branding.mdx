@@ -4,35 +4,86 @@ title: "品牌与元数据"
 
 把「FlareStarter」这个名字、标题、社交预览图和 logo 换成你自己的产品。
 
-> **fork 后你要改哪:** 站名在 i18n 字典;默认标题/描述在 `__root.tsx`;OG 预览图和 logo 在
-> `public/`;各页 canonical/OG 的 origin 由 `BETTER_AUTH_URL` 决定。
+> **fork 后你要改哪:** 品牌名/域名/仓库链接在 `.env` 的 4 个 `APP_*` 变量;
+> OG 预览图和 logo 在 `public/`;各页 canonical/OG 的 origin 由 `BETTER_AUTH_URL` 决定。
 
 ## 站名
 
-站内显示的产品名来自 i18n 字典的 `common.appName`(`src/features/i18n/dictionaries/en.ts`
-和 `zh.ts`)。
+**改 `.env` 里的 `APP_NAME` 就够了**,不需要动任何组件或字典:
+
+```dotenv
+APP_NAME=FinalImg
+APP_URL=https://finalimg.com
+APP_GITHUB_URL=https://github.com/FinalImg/finalimg-v2
+APP_LEGAL_NAME=FinalImg Inc
+```
+
+这 4 个是 **build-time** 变量(由 `vite.config.ts` 的 `define` 内联成字面量),权威定义在
+`src/lib/brand.ts`。所有消费点——页面标题、SEO 标签、结构化数据、PayPal `brand_name`、
+邮件发件人显示名、web manifest——都从那里读,**没有任何组件硬编码品牌名**。
+
+文案里的品牌通过 i18n 的**插值**注入:字典里写 `{app}`,由
+`translate()`(`src/features/i18n/locale.ts`)全局解析成 `APP_NAME`。
+所以 `en.ts` / `zh.ts` 里的 `common.appName` 值是占位符 `'{app}'`。
 
 <Callout type="warn">
-`en.ts` 与 `zh.ts` 结构必须完全一致(`zh` 的类型是 `Dict = typeof en`)。改名时**两个字典
-都要改**。另外字典里还有几处硬编码了 FlareStarter(如 `welcomeSub`、登录/后台副标题、法务
-占位页),一并替换。
+不要把字典里的 `'{app}'` 改回字面量。改字面量有两个代价:一是改名要同时改两个字典、还
+容易漏掉正文里的品牌句;二是同步上游时 `en.ts` / `zh.ts` 会反复冲突。
+你唯一需要保证的是 **`en.ts` 与 `zh.ts` 结构完全一致**(`zh` 的类型是 `Dict = typeof en`,
+`tsc` 会兜住),以及新增文案时用 `{app}` 而不是产品名。
 </Callout>
+
+<Callout type="info">
+这些变量是**构建期**的:改完要重新 `pnpm build`(部署流程会重建),不是重启 worker 就生效。
+请写在 `.env` 或 CI 环境变量里,不要写进 `.dev.vars`。
+</Callout>
+
+## 仓库链接
+
+`APP_GITHUB_URL` 出现在页头、页脚、docs 导航和首页的 `git clone` 提示里。两种特殊情况:
+
+- **留空** → 回落到模板自己的仓库(`vite.config.ts` 的默认值)。
+- **设成 `-`** → 完全不展示仓库链接。
+
+所有渲染处都做了判空(`{GITHUB_URL && <a …/>}`),所以隐藏时不会留下 `href=""` 的死链,
+页脚的 LICENSE 链接也会跟着一起消失。
 
 ## 页面标题与描述
 
 - **全站默认** `<title>` / `og:title` / description 在 `src/routes/__root.tsx` 的 `head()`
-  里,改成你的产品。
+  里,已经拼接了 `APP_NAME`。描述文案本身是模板的产品说明,建议改成你自己的。
 - **按页** 的 canonical + hreflang + OG 由 `localeHead`(`src/features/seo/seo.ts`)统一产出,
-  各路由的 loader 传入自己的 `title` / `description`。
+  各路由的 loader 传入自己的 `title` / `description`(同样已用 `APP_NAME` 拼接)。
 
 ## 社交预览图与 logo
 
 - OG 预览图固定取 `${origin}/logo512.png`(见 `seo.ts` 的 `og:image`)。换图直接替换
   `public/logo512.png`。
-- 一并替换 `public/logo192.png`、`public/favicon.ico`,并更新 `public/manifest.json` 里的
-  名称与图标。
+- 一并替换 `public/logo192.png`、`public/favicon.ico`。
+- **页头的 wordmark** 在 `src/components/brand/logo.tsx`。它是纯设计资产,不做成配置项——
+  想改成两段式("Final" 粗体 + "Img" 58%)直接改这个文件即可,上游极少动它。
+- web manifest 由 `src/routes/manifest[.]webmanifest.ts` 动态产出(所以名称能跟随
+  `APP_NAME`),图标路径 / 主题色在那边改。
 
 <Callout type="info">
-`og:url` / canonical 的域名来自 `BETTER_AUTH_URL`。生产务必设成真实域名,否则社交分享和 SEO
-链接会指错(见 [部署](/docs/getting-started/deploy) 与 [国际化与 SEO](/docs/features/i18n))。
+canonical / `og:url` 的 origin 优先取 `APP_URL`;`APP_URL` 还是模板的
+`*.example.com` 时回落到 `BETTER_AUTH_URL`。所以只配 `BETTER_AUTH_URL` 的老部署行为不变,
+而改用 `APP_URL` 后 SEO 的域名与站上印的品牌来自同一处配置。详见
+`src/features/seo/seo.fns.ts`。
 </Callout>
+
+## 版权行
+
+页脚的版权声明用 `APP_LEGAL_NAME`(例如 `© 2026 FinalImg Inc.`),与站名分开——公司主体名
+和产品名经常不是一回事。留空则跟随 `APP_NAME`。
+
+## 部署命名
+
+下游 fork 后资源名也要换。这几处不用改代码:
+
+- **worker 名**:CI 里设仓库 Variable `CF_WORKER_NAME`(默认 `flarestarter`),
+  `*-staging` / `*-production` 由 `.github/scripts/gen-wrangler.mjs` 拼。
+- **D1 库名**:`package.json` 的 `db:*` 脚本通过 `scripts/db-name.mjs` 从你的
+  `wrangler.jsonc` 读实际库名,不用改脚本;`wrangler.jsonc` 里的
+  `database_name` 是你 `cp wrangler.example.jsonc wrangler.jsonc` 之后自己填的。
+- **R2 桶名**:同样在 `wrangler.jsonc` 里(`flarestarter-files*` → 你的名字)。

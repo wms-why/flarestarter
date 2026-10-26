@@ -14,6 +14,7 @@ import browserCollections from 'collections/browser'
 import { dictionaries } from '@/features/i18n/locale'
 import type { Locale } from '@/features/i18n/locale'
 import { fmtDate } from '@/lib/format-date'
+import { APP_NAME } from '@/lib/brand'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -50,7 +51,7 @@ export const Route = createFileRoute('/{-$locale}/changelog')({
       origin,
       locale,
       path: '/changelog',
-      title: `${dict.changelog.title} — FlareStarter`,
+      title: `${dict.changelog.title} — ${APP_NAME}`,
       description: dict.changelog.subtitle,
     })
     return { meta, links }

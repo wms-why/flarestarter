@@ -10,6 +10,7 @@ import { FeatureGrid } from '@/components/marketing/feature-grid'
 import { AgentSection } from '@/components/marketing/agent-section'
 import { CTA } from '@/components/marketing/cta'
 import { Footer } from '@/components/marketing/footer'
+import { APP_NAME } from '@/lib/brand'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -22,11 +23,11 @@ export const Route = createFileRoute('/{-$locale}/')({
       origin,
       locale,
       path: '/',
-      title: 'FlareStarter',
+      title: APP_NAME,
       description:
         locale === 'zh'
-          ? 'FlareStarter——Cloudflare 原生的 SaaS 起步模板。克隆即用，部署到 Workers。'
-          : 'FlareStarter — the Cloudflare-native SaaS starter. Clone it and ship on Workers.',
+          ? `${APP_NAME}——Cloudflare 原生的 SaaS 起步模板。克隆即用，部署到 Workers。`
+          : `${APP_NAME} — the Cloudflare-native SaaS starter. Clone it and ship on Workers.`,
     })
     return { meta, links }
   },

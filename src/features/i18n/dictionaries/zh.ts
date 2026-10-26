@@ -1,7 +1,7 @@
 import type { Dict } from './en'
 
 export const zh: Dict = {
-  common: { appName: 'FlareStarter', toggleTheme: '切换主题', language: '语言' },
+  common: { appName: '{app}', toggleTheme: '切换主题', language: '语言' },
   home: {
     title: '在边缘部署你的 SaaS',
     greeting: '你好，{name}！',
@@ -38,7 +38,7 @@ export const zh: Dict = {
     collapseSidebar: '收起侧边栏', expandSidebar: '展开侧边栏',
     navAccount: '账号',
     userMenuLabel: '用户菜单',
-    welcomeSub: '这是你的 FlareStarter 工作区。',
+    welcomeSub: '这是你的 {app} 工作区。',
     quickActions: '快捷操作',
     openAccount: '账号设置',
     openAccountSub: '资料、密码、危险操作',
@@ -59,7 +59,7 @@ export const zh: Dict = {
   legal: {
     termsTitle: '服务条款',
     privacyTitle: '隐私政策',
-    placeholder: '这是 FlareStarter 模板自带的占位页面。上线前请替换为你自己的法务内容。',
+    placeholder: '这是 {app} 模板自带的占位页面。上线前请替换为你自己的法务内容。',
   },
   auth: {
     login: '登录', register: '注册', logout: '退出登录',
@@ -72,7 +72,7 @@ export const zh: Dict = {
     checkEmailReset: '如果该邮箱存在，重置链接已发送。',
     deleteAccount: '删除账号', deleteConfirm: '此操作将永久删除您的账号和数据，是否继续？',
     changePassword: '修改密码',
-    loginTitle: '欢迎回来', loginSub: '登录你的 FlareStarter 工作区',
+    loginTitle: '欢迎回来', loginSub: '登录你的 {app} 工作区。',
     registerTitle: '创建你的账号', registerSub: '几分钟即可开始，无需信用卡',
     orContinue: '或使用以下方式',
     forgotTitle: '重置密码', forgotSub: '输入邮箱，我们会发送重置链接',
@@ -154,7 +154,7 @@ export const zh: Dict = {
   admin: {
     title: '管理后台', dashboard: '概览', users: '用户',
     navAdmin: '后台',
-    overviewSub: 'FlareStarter 的注册、活跃与订阅情况。',
+    overviewSub: '{app} 的注册、活跃与订阅情况。',
     usersSub: '搜索、查看并管理每一个账号。',
     totalUsers: '用户数', activeUsers: '活跃用户', activeSubs: '活跃订阅', subscriptions: '订阅',
     active: '活跃', pastDue: '逾期', canceled: '已取消', pro: 'Pro', free: '免费',
@@ -239,8 +239,8 @@ export const zh: Dict = {
   sponsor: {
     navSponsor: '赞助', footerSponsor: '赞助',
     kicker: '// 支持这个项目',
-    title: '赞助 FlareStarter', titleHl: 'FlareStarter',
-    subtitle: 'FlareStarter 基于 Apache 2.0 开源。你的赞助将用于维护、开发新的 Cloudflare 模块与提供支持——同时把你的头像展示在官网赞助墙。Pro 上线时，早期赞助者还将获得专属优惠。',
+    title: '赞助 {app}', titleHl: '{app}',
+    subtitle: '{app} 基于 Apache 2.0 开源。你的赞助将用于维护、开发新的 Cloudflare 模块与提供支持——同时把你的头像展示在官网赞助墙。Pro 上线时，早期赞助者还将获得专属优惠。',
     monthly: '每月', once: '一次性', perMo: '/月',
     popular: '推荐',
     customLabel: '自定义', customHint: '输入任意金额',
@@ -258,7 +258,7 @@ export const zh: Dict = {
     autoRenewNote: '按月自动续费直至取消，可随时经 Stripe 门户管理',
     nonRefundNote: '赞助为自愿支持，不设退款',
     earlyPerkNote: '早期赞助者：Pro 上线时享专属优惠',
-    messageLabel: '公开留言', messageOptional: '可选', messagePlaceholder: '用 FlareStarter 一个周末就上线了我们的 SaaS',
+    messageLabel: '公开留言', messageOptional: '可选', messagePlaceholder: '用 {app} 一个周末就上线了我们的 SaaS',
     messageNote: '会作为引言展示在赞助墙上，附在你的名字旁。',
     sponsorBtn: '赞助', secure: '通过 Stripe 安全支付 · 可随时取消',
     payWithCard: '银行卡', payWithWechat: '微信支付',

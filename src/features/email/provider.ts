@@ -17,6 +17,8 @@
  * `env-validate.ts` 都能直接复用同一套判定，不会各自再实现一遍。
  */
 
+import { APP_NAME } from '@/lib/brand'
+
 /** 支持的服务商 id。`EMAIL_PROVIDER` 只认这些值（大小写不敏感）。 */
 export const EMAIL_PROVIDERS = ['resend', 'flowmails'] as const
 
@@ -45,8 +47,8 @@ export interface MailboxAddress {
   name?: string
 }
 
-/** Resend 缺省发件人；Flowmails 没有这种「随便用我测试地址」的余地，故不给缺省。 */
-export const DEFAULT_RESEND_FROM = 'FlareStarter <onboarding@resend.dev>'
+/** Resend 缺省发件人（显示名跟随品牌）；Flowmails 没有这种「随便用我测试地址」的余地，故不给缺省。 */
+export const DEFAULT_RESEND_FROM = `${APP_NAME} <onboarding@resend.dev>`
 
 /** 解析 `EMAIL_PROVIDER`。空白/未知 → resend（见文件头「未知值回落」）。 */
 export function resolveEmailProviderId(e: EmailEnv): EmailProviderId {
@@ -69,7 +71,7 @@ export function hasEmailDelivery(e: EmailEnv): boolean {
  * 拆 `EMAIL_FROM`，两种写法都吃：
  *
  *   `noreply@example.com`            → { address: 'noreply@example.com' }
- *   `FlareStarter <noreply@x.dev>`   → { address: 'noreply@x.dev', name: 'FlareStarter' }
+ *   `Acme <noreply@x.dev>`   → { address: 'noreply@x.dev', name: 'Acme' }
  *
  * 为什么要拆：Resend 的 `from` 收整个 RFC 5322 串（`Name <addr>`），
  * 而 Flowmails 的 `from` **必须是裸地址**（后端正则校验），显示名单走
@@ -84,7 +86,7 @@ export function parseFromHeader(raw: string | undefined): MailboxAddress | undef
   if (!angled) return value.includes('@') ? { address: value } : undefined
   const address = angled[2].trim()
   if (!address.includes('@')) return undefined
-  // 显示名去掉可能存在的引号：`"FlareStarter" <a@b>` → `FlareStarter`
+  // 显示名去掉可能存在的引号：`"Acme Inc" <a@b>` → `Acme Inc`
   const name = angled[1].trim().replace(/^"(.*)"$/s, '$1').trim()
   return name ? { address, name } : { address }
 }

@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.6.0",
+  "config": {
+    "dbName": "flarestarter-db"
+  },
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
@@ -17,10 +20,10 @@
     "cf-typegen": "wrangler types",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply flarestarter-db --local",
-    "db:migrate:staging": "wrangler d1 migrations apply flarestarter-db-staging --env staging --remote",
-    "db:migrate:prod": "wrangler d1 migrations apply flarestarter-db-prod --env production --remote",
-    "db:seed:local": "wrangler d1 execute flarestarter-db --local --file=./scripts/seed.sql",
+    "db:migrate:local": "wrangler d1 migrations apply $(node scripts/db-name.mjs) --local",
+    "db:migrate:staging": "wrangler d1 migrations apply $(node scripts/db-name.mjs --env staging) --env staging --remote",
+    "db:migrate:prod": "wrangler d1 migrations apply $(node scripts/db-name.mjs --env production) --env production --remote",
+    "db:seed:local": "wrangler d1 execute $(node scripts/db-name.mjs) --local --file=./scripts/seed.sql",
     "db:reset:local": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate:local && pnpm db:seed:local"
   },
   "dependencies": {

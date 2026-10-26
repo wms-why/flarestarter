@@ -19,7 +19,7 @@
  */
 
 /** The GA4 measurement id (e.g. `G-XXXXXXXXXX`), or `''` when not configured. */
-export const GA_MEASUREMENT_ID: string = import.meta.env.GA_MEASUREMENT_ID ?? ''
+export const GA_MEASUREMENT_ID: string = import.meta.env.GA_MEASUREMENT_ID || ''
 
 /** True when the build was configured with a measurement id. */
 export const GA_ENABLED = GA_MEASUREMENT_ID !== ''

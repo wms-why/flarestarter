@@ -5,6 +5,7 @@ import { getOptionalUser } from '@/features/auth/middleware'
 import { Toaster } from '@/components/ui/sonner'
 import { useResolvedTheme } from '@/features/theme/use-resolved-theme'
 import { GoogleAnalytics } from '@/features/analytics/google-analytics'
+import { APP_NAME } from '@/lib/brand'
 import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -12,9 +13,9 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'FlareStarter — Cloudflare-native SaaS starter' },
+      { title: `${APP_NAME} — Cloudflare-native SaaS starter` },
       { name: 'description', content: 'The open-source, Cloudflare-native SaaS starter. Clone it and ship on Workers.' },
-      { property: 'og:title', content: 'FlareStarter' },
+      { property: 'og:title', content: APP_NAME },
       { property: 'og:description', content: 'The open-source, Cloudflare-native SaaS starter. Clone it and ship on Workers.' },
       { property: 'og:type', content: 'website' },
     ],
@@ -23,7 +24,9 @@ export const Route = createRootRoute({
       { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
       { rel: 'icon', type: 'image/png', href: '/logo192.png', sizes: '192x192' },
       { rel: 'apple-touch-icon', href: '/logo192.png' },
-      { rel: 'manifest', href: '/manifest.json' },
+      // Served by a route (not `public/`) because the app name is a build-time
+      // value that a static file cannot read.
+      { rel: 'manifest', href: '/manifest.webmanifest' },
     ],
   }),
   loader: async () => {

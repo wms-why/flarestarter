@@ -7,6 +7,7 @@ import { PricingPage } from '@/features/billing/components/pricing-page'
 import { SiteNav } from '@/components/marketing/site-nav'
 import { Footer } from '@/components/marketing/footer'
 import type { Locale } from '@/features/i18n/locale'
+import { APP_NAME } from '@/lib/brand'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -31,7 +32,7 @@ export const Route = createFileRoute('/{-$locale}/pricing')({
       origin,
       locale,
       path: '/pricing',
-      title: locale === 'zh' ? '定价 — FlareStarter' : 'Pricing — FlareStarter',
+      title: locale === 'zh' ? `定价 — ${APP_NAME}` : `Pricing — ${APP_NAME}`,
       description:
         locale === 'zh'
           ? '免费开源核心，加上按月或按年的 Pro 与企业版。支持 Stripe、Waffo、Creem 与 PayPal。'

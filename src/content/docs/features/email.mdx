@@ -16,7 +16,7 @@ title: "邮件"
 | `EMAIL_PROVIDER` | `resend`(默认)或 `flowmails`。写错(如 `flowmail`)会让**启动直接报错**,不会悄悄回落 |
 | `RESEND_API_KEY` | Resend 密钥,仅在 `EMAIL_PROVIDER=resend` 时读取 |
 | `EMAIL_FLOWMAILS_APIKEY` | Flowmails 密钥(`fm_…`),仅在 `EMAIL_PROVIDER=flowmails` 时读取 |
-| `EMAIL_FROM` | 发件人,`noreply@yourdomain.com` 或 `FlareStarter <noreply@yourdomain.com>` |
+| `EMAIL_FROM` | 发件人,`noreply@yourdomain.com` 或 `Acme <noreply@yourdomain.com>` |
 
 **两个服务商的 key 不互相兜底。** 选了 `flowmails` 却只配了 `RESEND_API_KEY`,邮件不会退回
 Resend 真发(那等于把验证邮件发给一个你没选的服务商),而是降级到控制台捕获,并在启动时打印
@@ -31,7 +31,7 @@ Resend 真发(那等于把验证邮件发给一个你没选的服务商),而是�
   本地绝不误发。
 - 服务商的选择与「能不能发」的判定都集中在 `src/features/email/provider.ts`(纯函数,node 可测),
   注册时的邮箱验证开关复用同一套判定,所以切换服务商不需要改第二处。
-- 发件人取 `EMAIL_FROM`。Resend 缺省为 `FlareStarter <onboarding@resend.dev>`;Flowmails
+- 发件人取 `EMAIL_FROM`。Resend 留空时缺省为 `<APP_NAME> <onboarding@resend.dev>`(显示名跟随品牌);Flowmails
   **没有缺省**(见下)。
 - 正文由 `renderEmail`(`templates.ts`)渲染:根据 `locale` 从 i18n 字典 `dict.email` 取
   标题/正文/按钮文案,套进一个内联样式的 HTML 骨架,同时产出纯文本版。
@@ -46,7 +46,7 @@ Resend 真发(那等于把验证邮件发给一个你没选的服务商),而是�
    # .dev.vars(本地)
    EMAIL_PROVIDER=flowmails
    EMAIL_FLOWMAILS_APIKEY=fm_…
-   EMAIL_FROM=FlareStarter <hi@yourdomain.com>
+   EMAIL_FROM=Acme <hi@yourdomain.com>
    ```
 
    ```bash
@@ -61,7 +61,7 @@ Resend 真发(那等于把验证邮件发给一个你没选的服务商),而是�
 
 ### Flowmails 的三条硬约束
 
-- **`from` 必须是裸地址。** 后端正则校验,`FlareStarter <hi@x.dev>` 这种带显示名的写法会被拒。
+- **`from` 必须是裸地址。** 后端正则校验,`Acme <hi@x.dev>` 这种带显示名的写法会被拒。
   所以 `EMAIL_FROM` 在发送前由 `parseFromHeader` 拆开:地址进 `from`,显示名进 `fromName`。
   Resend 那条路不受影响 —— 它的 `from` 收整个 RFC 5322 串。
 - **`from` 必须落在 key 绑定的域名上。** 不在的话后端返回 422 `from_domain_mismatch`(SDK 抛

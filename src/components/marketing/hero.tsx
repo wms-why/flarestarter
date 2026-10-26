@@ -2,8 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Terminal } from 'lucide-react'
 import { useTranslation } from '@/features/i18n/provider'
 import { buttonVariants } from '@/components/ui/button'
-
-const GITHUB_URL = 'https://github.com/flarestarter/flarestarter'
+import { APP_GITHUB_URL as GITHUB_URL, APP_NAME } from '@/lib/brand'
 
 function TerminalCard() {
   return (
@@ -16,7 +15,8 @@ function TerminalCard() {
       </div>
       <div className="term-body">
         <div>
-          <span className="pr">$</span> git clone {GITHUB_URL} my-app
+          {/* 没有仓库 URL 时别渲染出「git clone」加两个空格的悬空命令 */}
+          <span className="pr">$</span> git clone {GITHUB_URL || `<${APP_NAME}>`} my-app
         </div>
         <div className="mt-1.5">
           <span className="pr">$</span> cd my-app && pnpm install
@@ -62,12 +62,14 @@ export function Hero({ loggedIn }: { loggedIn: boolean }) {
               {t('marketing.heroCtaPrimary')} <ArrowRight size={18} />
             </Link>
           )}
-          <a
-            href={GITHUB_URL}
-            className={buttonVariants({ variant: 'outline', size: 'lg', className: 'font-mono text-sm' })}
-          >
-            <Terminal size={16} /> {t('marketing.gitClone')}
-          </a>
+          {GITHUB_URL && (
+            <a
+              href={GITHUB_URL}
+              className={buttonVariants({ variant: 'outline', size: 'lg', className: 'font-mono text-sm' })}
+            >
+              <Terminal size={16} /> {t('marketing.gitClone')}
+            </a>
+          )}
         </div>
       </div>
       <TerminalCard />

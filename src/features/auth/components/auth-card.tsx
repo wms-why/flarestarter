@@ -7,6 +7,7 @@ import { LangSwitch } from '@/features/i18n/lang-switch'
 import { useTranslation } from '@/features/i18n/provider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { APP_NAME } from '@/lib/brand'
 
 const rootRoute = getRouteApi('__root__')
 
@@ -25,7 +26,7 @@ export function AuthCard({
   return (
     <div className="auth-wrap grid-bg">
       <div className="flex h-16 items-center gap-3 border-b border-border px-4 md:px-7">
-        <Link to="/{-$locale}" className="auth-home" aria-label="FlareStarter">
+        <Link to="/{-$locale}" className="auth-home" aria-label={APP_NAME}>
           <span className="auth-back" aria-hidden="true">
             <ChevronLeft size={16} />
           </span>

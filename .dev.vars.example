@@ -12,7 +12,10 @@ EMAIL_FLOWMAILS_APIKEY=
 # Sender. Either a bare address or `Display Name <address>`; the name is split
 # off for providers that take it separately (Flowmails). Flowmails requires an
 # address on the domain its key is bound to — anything else is rejected.
-EMAIL_FROM=FlareStarter <onboarding@resend.dev>
+# Blank on Resend = `<APP_NAME> <onboarding@resend.dev>`, i.e. the brand name from
+# `.env` (see src/lib/brand.ts) — that is a BUILD-time value, so it cannot be
+# referenced here. Set an explicit `Display Name <address>` for Flowmails.
+EMAIL_FROM=
 # Email verification on sign-up. Unset/blank = true, same as `true`.
 # Set to false to let a new account straight into the dashboard (no inbox round
 # trip) — only sensible for a private/demo deploy, since anyone can then sign up
@@ -87,6 +90,9 @@ TURNSTILE_SECRET_KEY=
 # Sentry server-side error reporting. Blank = off. DSN is in the Sentry project settings.
 SENTRY_DSN=
 # ── Build-time vars (NOT here) ───────────────────────────────────────────────
-# Google Analytics 4 (`GA_MEASUREMENT_ID`) is read by Vite while `vite build`
-# runs, so it lives in `.env` (see `.env.example`) or your CI environment —
-# not in `.dev.vars`. Blank = the GA4 code is not compiled into the bundle.
+# Read by Vite while `vite build` runs, so they live in `.env` (see
+# `.env.example`) or your CI environment — not in `.dev.vars`:
+#   - `GA_MEASUREMENT_ID` — blank = the GA4 code is not compiled into the bundle.
+#   - `APP_NAME` / `APP_URL` / `APP_GITHUB_URL` / `APP_LEGAL_NAME` — the brand.
+#     Change `APP_NAME` and the whole site renames itself (UI, SEO, emails,
+#     PayPal, manifest); see src/lib/brand.ts.

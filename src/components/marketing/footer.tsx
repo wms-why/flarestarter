@@ -3,8 +3,8 @@ import { useTranslation } from '@/features/i18n/provider'
 import { Logo } from '@/components/brand/logo'
 import { ThemeToggle } from '@/features/theme/theme-toggle'
 import { LangSwitch } from '@/features/i18n/lang-switch'
+import { APP_GITHUB_URL as GITHUB_URL, APP_LEGAL_NAME } from '@/lib/brand'
 
-const GITHUB_URL = 'https://github.com/flarestarter/flarestarter'
 const TELEGRAM_URL = 'https://t.me/+coaN5Ihjte9jNzZl'
 const X_URL = 'https://x.com/0xdinglv'
 const XHS_URL = 'https://xhslink.com/m/19FI1djnItu'
@@ -36,7 +36,7 @@ export function Footer({ theme }: { theme: 'light' | 'dark' }) {
 
         {/* Resources */}
         <FooterCol title={t('marketing.footerResources')}>
-          <a className="foot-link" href={GITHUB_URL}>{t('marketing.footerGithub')}</a>
+          {GITHUB_URL && <a className="foot-link" href={GITHUB_URL}>{t('marketing.footerGithub')}</a>}
           <a className="foot-link" href={TELEGRAM_URL} target="_blank" rel="noreferrer">{t('marketing.footerTelegram')}</a>
           <a className="foot-link" href={X_URL} target="_blank" rel="noreferrer">{t('marketing.footerX')}</a>
           <a className="foot-link" href={XHS_URL} target="_blank" rel="noreferrer">{t('marketing.footerXhs')}</a>
@@ -46,13 +46,16 @@ export function Footer({ theme }: { theme: 'light' | 'dark' }) {
         <FooterCol title={t('marketing.footerLegal')}>
           <Link className="foot-link" to="/{-$locale}/terms">{t('marketing.footerTerms')}</Link>
           <Link className="foot-link" to="/{-$locale}/privacy">{t('marketing.footerPrivacy')}</Link>
-          <a className="foot-link" href={`${GITHUB_URL}/blob/main/LICENSE`}>{t('marketing.footerLicense')}</a>
+          {/* LICENSE 链接是相对仓库的，没有仓库 URL 时一起隐藏，否则就是死链 */}
+          {GITHUB_URL && (
+            <a className="foot-link" href={`${GITHUB_URL}/blob/main/LICENSE`}>{t('marketing.footerLicense')}</a>
+          )}
         </FooterCol>
       </div>
 
       <div className="mt-8 flex flex-col items-start justify-between gap-4 border-t border-border pt-5 sm:flex-row sm:items-center">
         <p className="text-[13px] text-fg-3">
-          &copy; {year} {t('common.appName')}. {t('marketing.footerRights')}
+          &copy; {year} {APP_LEGAL_NAME}. {t('marketing.footerRights')}
         </p>
         <div className="flex items-center gap-1">
           <ThemeToggle theme={theme} />

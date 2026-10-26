@@ -16,6 +16,7 @@ import { source } from '@/features/docs/source'
 import { baseOptions } from '@/features/docs/layout.shared'
 import { useMDXComponents } from '@/features/docs/mdx-components'
 import browserCollections from 'collections/browser'
+import { APP_NAME } from '@/lib/brand'
 import docsCss from '@/styles/docs.css?url'
 
 const rootRoute = getRouteApi('__root__')
@@ -90,7 +91,7 @@ export const Route = createFileRoute('/docs/$')({
   // must not fall back to the site-wide default title (duplicate-title farm).
   // og:title/og:description 同步覆盖（否则分享卡片仍显示 __root 的全站默认值，与 <title> 脱节）。
   head: ({ loaderData }) => {
-    const title = loaderData?.title ? `${loaderData.title} · FlareStarter Docs` : 'FlareStarter Docs'
+    const title = loaderData?.title ? `${loaderData.title} · ${APP_NAME} Docs` : `${APP_NAME} Docs`
     const canonical = loaderData?.origin ? `${loaderData.origin}${loaderData.docsPath}` : null
     return {
       meta: [

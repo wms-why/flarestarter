@@ -18,6 +18,7 @@
  */
 import { tierForProduct } from '../plans'
 import type { DomainEvent } from '../entitlement'
+import { APP_NAME } from '@/lib/brand'
 import { classifyPurchase } from '@/features/credits/credits.core'
 import type { CheckoutInput, PaymentProvider } from '../payment'
 import { PROVIDER_CATALOG } from './catalog'
@@ -170,7 +171,7 @@ export function createPaypalProvider(env: PaypalEnv, fetchImpl: FetchLike = fetc
             plan_id: input.productId,
             subscriber: { email_address: input.userEmail },
             application_context: {
-              brand_name: 'FlareStarter',
+              brand_name: APP_NAME,
               user_action: 'SUBSCRIBE_NOW',
               return_url: input.successUrl,
               // Deriving the cancel URL by rewriting the success URL keeps the
@@ -201,7 +202,7 @@ export function createPaypalProvider(env: PaypalEnv, fetchImpl: FetchLike = fetc
             paypal: {
               email_address: input.userEmail,
               experience_context: {
-                brand_name: 'FlareStarter',
+                brand_name: APP_NAME,
                 user_action: 'PAY_NOW',
                 return_url: input.successUrl,
                 cancel_url: input.cancelUrl,

@@ -5,6 +5,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { isPurchasable, getCheckoutOptions } from '@/features/billing/billing.serverfn'
 import { CheckoutProviders } from '@/features/billing/components/checkout-providers'
+import { APP_NAME } from '@/lib/brand'
 
 type Search = { tier?: string; interval?: string; provider?: string }
 
@@ -142,7 +143,7 @@ function CheckoutPage() {
       </div>
 
       <p className="mt-12 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-fg-3">
-        <Link to="/{-$locale}" className="hover:text-foreground">FlareStarter</Link>
+        <Link to="/{-$locale}" className="hover:text-foreground">{APP_NAME}</Link>
       </p>
     </div>
   )

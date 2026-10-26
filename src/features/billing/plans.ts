@@ -20,7 +20,7 @@
  * means "this vendor has no product for this tier/interval yet" and makes that
  * vendor's button disappear from checkout — it is not an error.
  */
-import type { Locale } from '@/features/i18n/locale'
+import { interpolate, type Locale } from '@/features/i18n/locale'
 import { PROVIDER_IDS, type ProviderId } from './providers/catalog'
 
 export type Interval = 'monthly' | 'yearly'
@@ -122,7 +122,7 @@ export const planTiers = [
       { text: { en: 'Every future module update', zh: '所有后续模块更新' }, enabled: true },
       { text: { en: 'Priority support, straight from the maintainers', zh: '维护者直连的优先支持' }, enabled: true },
       { text: { en: 'SSO / SAML + audit log', zh: 'SSO / SAML + 审计日志' }, enabled: false },
-      { text: { en: 'White-label (no FlareStarter branding)', zh: '白标（不显示 FlareStarter 品牌）' }, enabled: false },
+      { text: { en: 'White-label (no {app} branding)', zh: '白标（不显示 {app} 品牌）' }, enabled: false },
     ],
     credits: { monthlyGrant: 5_000 },
   },
@@ -253,8 +253,15 @@ export function roadmapBullets(tier: PlanTier): readonly PlanBullet[] {
   return tier.bullets.filter((b) => !b.enabled)
 }
 
+/**
+ * 取某个 locale 的文案。
+ *
+ * 这里额外走一次 `interpolate()` 的**全局插值**：套餐文案（`LocalizedText`）不是 i18n
+ * 字典，但里面同样允许写 `{app}`（例如「白标：不显示 {app} 品牌」）。所有套餐文案
+ * 都从这个函数取出，所以在这里统一解析一次就够了——不要在调用点各写各的。
+ */
 export function localize(text: LocalizedText, locale: Locale): string {
-  return text[locale] ?? text.en
+  return interpolate(text[locale] ?? text.en)
 }
 
 export type { ProviderId }

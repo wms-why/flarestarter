@@ -40,6 +40,21 @@ describe('planTiers config invariants', () => {
     }
   })
 
+  // 套餐文案不走 i18n 字典，但它同样允许写 `{app}`（白标那条就是）。localize()
+  // 负责解析；这里守住「没有任何一条套餐文案把 {app} 原样漏到界面上」。
+  test('no plan copy leaks a raw {app} placeholder', () => {
+    for (const tier of planTiers) {
+      for (const locale of ['en', 'zh'] as const) {
+        expect(localize(tier.name, locale), `${tier.id}.name.${locale}`).not.toContain('{app}')
+        expect(localize(tier.summary, locale), `${tier.id}.summary.${locale}`).not.toContain('{app}')
+      }
+      for (const bullet of tier.bullets) {
+        expect(localize(bullet.text, 'en'), bullet.text.en).not.toContain('{app}')
+        expect(localize(bullet.text, 'zh'), bullet.text.zh).not.toContain('{app}')
+      }
+    }
+  })
+
   test('exactly one tier is featured, and it is a paid tier', () => {
     const featured = planTiers.filter((t) => t.featured)
     expect(featured).toHaveLength(1)

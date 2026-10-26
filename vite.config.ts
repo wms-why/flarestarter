@@ -27,10 +27,30 @@ function gaMeasurementId(mode: string): string {
   return (env.GA_MEASUREMENT_ID ?? '').trim()
 }
 
+/**
+ * 品牌值 —— 同样是 BUILD-time 值，见 `src/lib/brand.ts` 的说明。
+ *
+ * 缺省回落到模板自己的名字，保证「没配过 `.env`」的构建行为与改造前完全一致。
+ * 这就是下游 fork 后唯一要改的配置面：4 个环境变量。
+ */
+function brandValue(mode: string) {
+  const env = loadEnv(mode, process.cwd(), 'APP_')
+  const read = (key: string, fallback: string) => (env[key] ?? '').trim() || fallback
+  return {
+    appName: read('APP_NAME', 'FlareStarter'),
+    appUrl: read('APP_URL', 'https://flarestarter.example.com'),
+    // 默认指向模板仓库，而不是空串：模板自己不配也要有仓库链接。下游要隐藏就设
+    // 一个占位值（`read()` 把空白当未配置，无法用空串表达「无仓库」）。
+    appGithubUrl: read('APP_GITHUB_URL', 'https://github.com/flarestarter/flarestarter'),
+    appLegalName: read('APP_LEGAL_NAME', read('APP_NAME', 'FlareStarter')),
+  }
+}
+
 const src = (file: string) => fileURLToPath(new URL(`./src/${file}`, import.meta.url))
 
 export default defineConfig(({ mode }) => {
   const gaId = gaMeasurementId(mode)
+  const brand = brandValue(mode)
   return {
     resolve: {
       tsconfigPaths: true,
@@ -50,6 +70,11 @@ export default defineConfig(({ mode }) => {
       // unconfigured build doesn't even carry the hostnames.
       'import.meta.env.GA_SCRIPT_HOSTS': JSON.stringify(gaId ? GA_SCRIPT_HOSTS : []),
       'import.meta.env.GA_CONNECT_HOSTS': JSON.stringify(gaId ? GA_CONNECT_HOSTS : []),
+      // 品牌：同样内联成字面量，浏览器组件与 Worker 都能读（见 src/lib/brand.ts）。
+      'import.meta.env.APP_NAME': JSON.stringify(brand.appName),
+      'import.meta.env.APP_URL': JSON.stringify(brand.appUrl),
+      'import.meta.env.APP_GITHUB_URL': JSON.stringify(brand.appGithubUrl),
+      'import.meta.env.APP_LEGAL_NAME': JSON.stringify(brand.appLegalName),
     },
     plugins: [
       mdx(),

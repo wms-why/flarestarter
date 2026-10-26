@@ -162,6 +162,7 @@ See [`.dev.vars.example`](.dev.vars.example) for the full list. Locally everythi
 - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (optional bot protection — [security](https://flarestarter.com/docs/platform/security))
 - `SENTRY_DSN` (optional server-side error reporting — [observability](https://flarestarter.com/docs/platform/observability)). Web Analytics needs no env var: Cloudflare injects the beacon at the edge once you enable it in the dashboard.
 - `GA_MEASUREMENT_ID` (optional **build-time** Google Analytics 4 measurement id — [observability](https://flarestarter.com/docs/platform/observability)). Blank = the GA4 code is not compiled into the bundle at all. It is read from `.env` / your CI env (see [`.env.example`](.env.example)), **not** from `.dev.vars`.
+- `APP_NAME`, `APP_URL`, `APP_GITHUB_URL`, `APP_LEGAL_NAME` (**build-time** brand — UI titles, SEO, structured data, PayPal `brand_name`, the email sender name and the web manifest). **This is the only place to rename the product:** no component hard-codes it, and `APP_NAME` also resolves the `{app}` placeholder used throughout the i18n dictionaries. Same home as `GA_MEASUREMENT_ID` (`.env` / CI env), **not** `.dev.vars`. See [`src/lib/brand.ts`](src/lib/brand.ts) and [branding](https://flarestarter.com/docs/customization/branding).
 
 Every optional integration degrades gracefully: leave its keys blank and the
 feature simply turns off. The startup env validator catches misconfigurations

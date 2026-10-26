@@ -17,6 +17,7 @@ FlareStarter — a Cloudflare-native SaaS starter on **TanStack Start + Cloudfla
 ## Conventions
 
 - **Env:** read from `@/lib/env` (re-exports `cloudflare:workers`). Never use `process.env`. In server-only modules read env **lazily** inside the function (`const { env } = await import('@/lib/env')`) so pure cores stay node-testable. Build-time values (e.g. `GA_MEASUREMENT_ID`) are a different thing: they are inlined by Vite via `define` in `vite.config.ts` and read from `.env` / CI env — never from the worker env.
+- **Brand is configuration, never a literal.** `src/lib/brand.ts` is the single source (`APP_NAME`, `APP_URL`, `APP_GITHUB_URL`, `APP_LEGAL_NAME`), inlined at build time by `vite.config.ts` the same way `GA_MEASUREMENT_ID` is. Read it from there — never write `'FlareStarter'` in a component, meta tag or server module. Copy strings with a brand in them use the `{app}` placeholder, which `translate()` resolves from `APP_NAME` globally (see `src/features/i18n/locale.ts`); so the dictionary values stay `'{app}'` and only `.env` changes when the product is renamed. Anything reading `APP_GITHUB_URL` **must** guard on emptiness — it is `''` when the operator hides the repo link, and an unguarded consumer renders a dead `href=""`.
 - **i18n:** `src/features/i18n/dictionaries/en.ts` + `zh.ts` must be structurally identical (`zh` is typed `Dict = typeof en`). Add every key to both.
 - **DB:** Drizzle + D1 migrations — `pnpm db:generate` then `pnpm db:migrate:local`; register new tables in `src/db/schema.ts`.
 - **No mock, graceful degradation:** optional integrations (email, Stripe, Turnstile, Sentry) switch off when their env keys are absent — keep that behavior. (Cloudflare Web Analytics needs no key: Cloudflare injects the beacon at the edge.) Google Analytics 4 is the one build-time switch: `GA_MEASUREMENT_ID` is inlined by Vite, and when it is blank `vite.config.ts` aliases the GA loader to a no-op stub so no GA code reaches the bundle.
@@ -40,3 +41,10 @@ pnpm build             # vite build
 pnpm db:migrate:local  # apply D1 migrations locally
 pnpm deploy:prod       # CLOUDFLARE_ENV=production build + wrangler deploy (staging: deploy:staging)
 ```
+
+## 本地约定
+
+本模板下游项目自己的约定放这里（或拆到 `AGENTS.local.md`，用 `@AGENTS.local.md` 引入）。
+上游内容保持原样，下游只在自己的段落里追加——这样同步上游时 `AGENTS.md` 不会每次冲突。
+
+下游的品牌值不要写进本文档，改 `.env` 的 `APP_*` 即可（见 [品牌与元数据](src/content/docs/customization/branding.mdx)）。

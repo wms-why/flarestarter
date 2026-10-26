@@ -16,6 +16,7 @@ import {
   type PlanTier,
 } from '@/features/billing/plans'
 import type { Locale } from '@/features/i18n/locale'
+import { APP_GITHUB_URL as GITHUB_URL, APP_NAME } from '@/lib/brand'
 
 /**
  * "Accepted payment methods" strip.
@@ -146,10 +147,15 @@ function TierCard({
           >
             {isFree ? labels.getStarted : labels.choose(localize(tier.name, locale))}
           </Link>
-        ) : isFree ? (
+        ) : isFree && GITHUB_URL ? (
           <a href={GITHUB_URL} className={buttonVariants({ variant: 'outline', className: 'w-full' })}>
             <Github size={15} /> {labels.getStarted}
           </a>
+        ) : isFree ? (
+          // 免费档没有仓库 URL 可以指——留一个不可点的同款按钮，而不是 `href=""`。
+          <span className={buttonVariants({ variant: 'outline', className: 'w-full' })}>
+            {labels.getStarted}
+          </span>
         ) : (
           /*
             No product id configured for this tier/interval, so there is nothing
@@ -318,9 +324,13 @@ export function PricingPage({
 
       {/* the free tier keeps its own CTA strip — no provider involved */}
       <section className="px-5 pb-16 pt-10 text-center md:px-7">
-        <a href={GITHUB_URL} className={buttonVariants({ variant: 'outline' })}>
-          <Github size={15} /> {t('billing.ctaGetStarted')}
-        </a>
+        {GITHUB_URL ? (
+          <a href={GITHUB_URL} className={buttonVariants({ variant: 'outline' })}>
+            <Github size={15} /> {t('billing.ctaGetStarted')}
+          </a>
+        ) : (
+          <span className={buttonVariants({ variant: 'outline' })}>{t('billing.ctaGetStarted')}</span>
+        )}
         <p className="mt-4 mb-0 font-mono text-[12px] text-fg-3">
           {formatUsd(freeTier.monthly.amountUsd)} · {localize(freeTier.name, locale)}
         </p>
@@ -343,9 +353,9 @@ function PricingJsonLd({ origin }: { origin: string }) {
   const product = {
     '@context': 'https://schema.org',
     '@type': 'Product',
-    name: 'FlareStarter',
+    name: APP_NAME,
     description: 'Open-source Cloudflare-native SaaS starter with optional paid tiers.',
-    brand: { '@type': 'Brand', name: 'FlareStarter' },
+    brand: { '@type': 'Brand', name: APP_NAME },
     offers,
   }
   const faq = {
@@ -364,6 +374,3 @@ function PricingJsonLd({ origin }: { origin: string }) {
     </>
   )
 }
-
-// Set this to your real repository URL before publishing.
-const GITHUB_URL = 'https://github.com/flarestarter/flarestarter'
