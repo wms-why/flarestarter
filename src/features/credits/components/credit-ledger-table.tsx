@@ -12,8 +12,17 @@ import type { CreditLedgerRow } from '../credits.schema'
  * The kind label comes from `ledgerKindLabel`, which maps the DB string to an
  * i18n key — the table no longer hardcodes English labels, so the zh page
  * shows 月度发放 / 消费 / 退款 instead of `grant.monthly` / `consume`.
+ *
+ * `emptyLabel` lets a host page say what "no rows" means in its own context
+ * (the credits page shows the full history, the account page a 5-row preview).
  */
-export function CreditLedgerTable({ rows }: { rows: CreditLedgerRow[] }) {
+export function CreditLedgerTable({
+  rows,
+  emptyLabel,
+}: {
+  rows: CreditLedgerRow[]
+  emptyLabel?: string
+}) {
   const { t } = useTranslation()
   return (
     <Table>
@@ -30,7 +39,7 @@ export function CreditLedgerTable({ rows }: { rows: CreditLedgerRow[] }) {
         {rows.length === 0 ? (
           <TableRow>
             <TableCell colSpan={5} className="p-6 text-center text-sm text-fg-3">
-              {t('credits.history')}
+              {emptyLabel ?? t('credits.noHistory')}
             </TableCell>
           </TableRow>
         ) : (

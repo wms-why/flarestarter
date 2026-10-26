@@ -14,6 +14,7 @@ import { LogOut, Trash2, Coins } from 'lucide-react'
 import { ManageSubscription } from '@/features/billing/components/manage-subscription'
 import { AvatarUploader } from '@/features/storage/components/avatar-uploader'
 import { creditsFeatureEnabled, getCredits } from '@/features/credits/credits.serverfn'
+import { CreditLedgerTable } from '@/features/credits/components/credit-ledger-table'
 
 export const Route = createFileRoute('/{-$locale}/app/account')({
   head: () => ({ meta: [{ name: 'robots', content: 'noindex' }] }),
@@ -131,6 +132,31 @@ function AccountPage() {
               <Link to="/{-$locale}/app/credits" className={buttonVariants({ variant: 'outline' })}>
                 <Coins size={15} /> {t('credits.title')}
               </Link>
+            </div>
+
+            {/*
+              The recent movements the loader already fetched (pageSize 5). This
+              is the same table as the credits page, so "where did those credits
+              go?" is answerable without leaving the account page; the link above
+              is the path to the full paginated history.
+            */}
+            <div className="mt-5">
+              <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                <h4 className="m-0 font-mono text-[12px] uppercase tracking-wide text-fg-3">
+                  {t('credits.recent')}
+                </h4>
+                {credits.ledger.total > credits.ledger.rows.length && (
+                  <Link
+                    to="/{-$locale}/app/credits"
+                    className="text-[13px] text-primary no-underline hover:underline"
+                  >
+                    {t('credits.viewAll')}
+                  </Link>
+                )}
+              </div>
+              <div className="-mx-[22px] -mb-[22px] border-t border-border">
+                <CreditLedgerTable rows={credits.ledger.rows} emptyLabel={t('credits.noHistory')} />
+              </div>
             </div>
           </Section>
         )}
