@@ -225,16 +225,16 @@ importers:
         specifier: ^4.1.18
         version: 4.3.2(vite@8.0.14(@types/node@22.20.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4))
       '@tanstack/react-devtools':
-        specifier: latest
+        specifier: 0.10.14
         version: 0.10.14(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(solid-js@1.9.14)
       '@tanstack/react-router':
-        specifier: latest
+        specifier: 1.170.46
         version: 1.170.46(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-router-devtools':
-        specifier: latest
+        specifier: 1.167.3
         version: 1.167.3(@tanstack/react-router@1.170.46(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/router-core@1.171.39)(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-start':
-        specifier: latest
+        specifier: 1.169.5
         version: 1.169.5(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.4)(supports-color@10.2.2)(vite@8.0.14(@types/node@22.20.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4))
       '@waffo/pancake-ts':
         specifier: ^0.28.0
@@ -307,7 +307,7 @@ importers:
         specifier: ^0.5.16
         version: 0.5.20(tailwindcss@4.3.2)
       '@tanstack/devtools-vite':
-        specifier: latest
+        specifier: 0.8.6
         version: 0.8.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(vite@8.0.14(@types/node@22.20.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4))
       '@types/mdx':
         specifier: ^2.0.14
