@@ -44,7 +44,16 @@ export interface PaymentProvider {
   /** Whether cancelling ends access now or at the end of the paid period. */
   readonly cancelMode: 'immediate' | 'at_period_end'
 
-  ensureCustomer(user: { id: string; email: string }, existingCustomerId: string | null): Promise<string | null>
+  /**
+   * Resolve the vendor-side customer id for this user.
+   *
+   * `existingCustomerId` is only ever an id minted by **this** vendor
+   * (`startCheckout` passes null when the row belongs to another provider — both
+   * Stripe and Dodo use a `cus_` prefix, so an id cannot be told apart by shape).
+   * `name` is optional because the user record may not carry one; vendors that
+   * require it fall back to the email local part.
+   */
+  ensureCustomer(user: { id: string; email: string; name?: string }, existingCustomerId: string | null): Promise<string | null>
   createCheckoutSession(input: CheckoutInput): Promise<{ url: string }>
   /** Throws when `supportsPortal` is false. */
   createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>

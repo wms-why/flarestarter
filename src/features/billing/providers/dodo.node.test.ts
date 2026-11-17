@@ -91,7 +91,7 @@ describe('checkout', () => {
     const out = await provider.createCheckoutSession({
       userId: 'u1',
       userEmail: 'buyer@example.com',
-      customerId: 'cus_from_another_vendor',
+      customerId: 'cus_0Ns7BjrRZtQf1GHbDunjG',
       productId: 'pdt_pro',
       mode: 'subscription',
       successUrl: 'https://app.test/app?checkout=success',
@@ -106,14 +106,23 @@ describe('checkout', () => {
     const body = JSON.parse(String(calls[0].init.body))
     expect(body).toMatchObject({
       product_cart: [{ product_id: 'pdt_pro', quantity: 1 }],
-      // The buyer is identified by email on purpose: a stored customer id may
-      // belong to a different vendor.
-      customer: { email: 'buyer@example.com' },
+      // The provisioned customer is attached, so the subscription lands on the
+      // same record the portal is opened for later.
+      customer: { customer_id: 'cus_0Ns7BjrRZtQf1GHbDunjG' },
       return_url: 'https://app.test/app?checkout=success',
       cancel_url: 'https://app.test/checkout',
       metadata: { userId: 'u1', plan: 'pro', provider: 'dodo' },
     })
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer dodo_test_1')
+  })
+
+  test('falls back to the buyer email when no customer could be provisioned', async () => {
+    const { fetchImpl, calls } = stubFetch({ body: { checkout_url: 'https://checkout.dodopayments.com/s' } })
+    await createDodoProvider(ENV, fetchImpl).createCheckoutSession({
+      userId: 'u1', userEmail: 'buyer@example.com', customerId: null, productId: 'pdt_pro',
+      mode: 'subscription', successUrl: 'https://app.test/ok', cancelUrl: 'https://app.test/no', metadata: {},
+    })
+    expect(JSON.parse(String(calls[0].init.body)).customer).toEqual({ email: 'buyer@example.com' })
   })
 
   test('DODO_ENV=live switches to the production API', async () => {
@@ -139,6 +148,69 @@ describe('checkout', () => {
       userId: 'u1', userEmail: 'buyer@example.com', customerId: null, productId: 'pdt_missing',
       mode: 'subscription', successUrl: 'https://app.test/ok', cancelUrl: 'https://app.test/no', metadata: {},
     })).rejects.toThrow('Dodo Payments POST /checkouts failed (422)')
+  })
+})
+
+describe('ensureCustomer / portal', () => {
+  function stub(reply: { status?: number; body?: unknown }) {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init })
+      return new Response(JSON.stringify(reply.body ?? {}), { status: reply.status ?? 200 })
+    }) as unknown as typeof fetch
+    return { fetchImpl, calls }
+  }
+
+  test('provisions a customer before checkout so the portal can be opened later', async () => {
+    const { fetchImpl, calls } = stub({ body: { customer_id: 'cus_new', email: 'buyer@example.com' } })
+    const id = await createDodoProvider(ENV, fetchImpl).ensureCustomer(
+      { id: 'u1', email: 'buyer@example.com', name: 'E2E Dodo Tester' },
+      null,
+    )
+    expect(id).toBe('cus_new')
+    expect(calls[0].url).toBe('https://test.dodopayments.com/customers')
+    expect(calls[0].init.method).toBe('POST')
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ email: 'buyer@example.com', name: 'E2E Dodo Tester' })
+  })
+
+  test('reuses the stored id without another API call', async () => {
+    const { fetchImpl, calls } = stub({})
+    const id = await createDodoProvider(ENV, fetchImpl).ensureCustomer(
+      { id: 'u1', email: 'buyer@example.com' },
+      'cus_existing',
+    )
+    expect(id).toBe('cus_existing')
+    expect(calls).toHaveLength(0)
+  })
+
+  test('falls back to the email local part when the account has no name', async () => {
+    const { fetchImpl, calls } = stub({ body: { customer_id: 'cus_new' } })
+    await createDodoProvider(ENV, fetchImpl).ensureCustomer({ id: 'u1', email: 'buyer@example.com' }, null)
+    expect(JSON.parse(String(calls[0].init.body)).name).toBe('buyer')
+  })
+
+  test('a provisioning failure degrades to null instead of blocking the sale', async () => {
+    // Checkout can still create the customer itself; the webhook writes the
+    // vendor-issued id back afterwards, which heals the portal on the next visit.
+    const { fetchImpl } = stub({ status: 422, body: { error: 'INVALID_EMAIL' } })
+    await expect(createDodoProvider(ENV, fetchImpl).ensureCustomer(
+      { id: 'u1', email: 'buyer@example.com' },
+      null,
+    )).resolves.toBeNull()
+  })
+
+  test('opens a hosted portal session for that customer', async () => {
+    const { fetchImpl, calls } = stub({ body: { link: 'https://customer.dodopayments.com/session/abc' } })
+    const out = await createDodoProvider(ENV, fetchImpl).createPortalSession('cus_1', 'https://app.test/app/account')
+    expect(out).toEqual({ url: 'https://customer.dodopayments.com/session/abc' })
+    expect(calls[0].url).toBe('https://test.dodopayments.com/customers/cus_1/customer-portal/session')
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ return_url: 'https://app.test/app/account' })
+  })
+
+  test('a portal response without a link is an error, not a redirect to nowhere', async () => {
+    const { fetchImpl } = stub({ body: {} })
+    await expect(createDodoProvider(ENV, fetchImpl).createPortalSession('cus_1', 'https://app.test/x'))
+      .rejects.toThrow(/portal link/)
   })
 })
 

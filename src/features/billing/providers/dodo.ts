@@ -12,10 +12,13 @@
  *      (HMAC-SHA256 over `id.timestamp.body`), which Workers' WebCrypto can
  *      check directly — unlike PayPal, no remote verdict is needed. See
  *      `dodo-signature.ts`.
- *   2. **There is no customer id we can pre-create.** `ensureCustomer` passes the
- *      stored id through untouched and checkout sends the buyer's *email*, so
- *      the local user is recovered from `metadata.userId` echoed back on every
- *      event — the same channel Creem uses.
+ *   2. **A customer is provisioned up front, but identity still rides on
+ *      metadata.** `ensureCustomer` creates the Dodo customer before checkout so
+ *      the hosted customer portal can be opened for this user later; attribution
+ *      however never depends on that id — the webhook carries `metadata.userId`
+ *      back, the same channel Creem uses. If provisioning fails, checkout still
+ *      works with the buyer's email and `applyDomainEvent` writes the
+ *      vendor-issued id back on the first subscription event.
  *   3. **`payment.succeeded` fires for subscription invoices too.** A payment
  *      carrying a `subscription_id` is the first (or nth) charge of a
  *      subscription, not a lifetime purchase. Treating it as one would flip the
@@ -167,23 +170,52 @@ export function createDodoProvider(env: DodoEnv, fetchImpl: FetchLike = fetch): 
     supportsPortal: meta.supportsPortal,
     cancelMode: meta.cancelMode,
 
-    /** Dodo can mint a customer at checkout, so there is nothing to pre-create. */
-    async ensureCustomer(_user, existingCustomerId) {
-      return existingCustomerId
+    /**
+     * Create the customer before checkout, because the hosted portal is opened
+     * per customer (`/customers/{id}/customer-portal/session`) and a customer
+     * minted at checkout time is only visible on the webhook.
+     *
+     * `existingCustomerId` is always one *this* adapter created — `startCheckout`
+     * passes null when the row belonged to another vendor.
+     *
+     * A failure here must never block a sale: checkout can create the customer
+     * itself from the email, and the first subscription event writes the
+     * vendor-issued id back onto the row (`applyDomainEvent`), which heals the
+     * portal on the next visit. The only cost is one subscription cycle without
+     * a portal link.
+     */
+    async ensureCustomer(user, existingCustomerId) {
+      if (existingCustomerId) return existingCustomerId
+      try {
+        const json = await callApi('/customers', {
+          method: 'POST',
+          body: {
+            email: user.email,
+            // Dodo requires a name; the email local part is the honest fallback
+            // when the account never set one.
+            name: user.name?.trim() || user.email.split('@')[0] || user.email,
+          },
+        })
+        return readId(json.customer_id)
+      } catch (err) {
+        console.error('[billing] Dodo customer pre-creation failed; checkout will create one instead', err)
+        return null
+      }
     },
 
     async createCheckoutSession(input: CheckoutInput) {
       // One endpoint for both modes: the product's own type decides whether this
       // is a subscription or a one-time charge.
       //
-      // The buyer is identified by **email**, never by `input.customerId`: that
-      // column may hold an id minted by a *different* vendor (a user who
-      // switched providers), and Dodo would 404 the session.
+      // Attach the customer we provisioned, so the subscription belongs to the
+      // same record the portal will be opened for. Without an id we fall back to
+      // the email and let Dodo create one at checkout.
+      const customer = input.customerId ? { customer_id: input.customerId } : { email: input.userEmail }
       const json = await callApi('/checkouts', {
         method: 'POST',
         body: {
           product_cart: [{ product_id: input.productId, quantity: 1 }],
-          customer: { email: input.userEmail },
+          customer,
           return_url: input.successUrl,
           cancel_url: input.cancelUrl,
           metadata: input.metadata,
@@ -194,8 +226,22 @@ export function createDodoProvider(env: DodoEnv, fetchImpl: FetchLike = fetch): 
       return { url }
     },
 
-    async createPortalSession() {
-      throw new Error('Dodo Payments portal is not wired up in this template — use cancelSubscription instead')
+    /**
+     * Hosted customer portal: one session per customer, valid for 24 hours.
+     *
+     * `return_url` is sent as documented, but Dodo does not echo it into the
+     * session JWT in test mode (verified against the live API: the payload comes
+     * back with `return_url: null`), so no "back to the app" link appears. That
+     * is a vendor-side gap, not a missing parameter — do not chase it here.
+     */
+    async createPortalSession(customerId, returnUrl) {
+      const json = await callApi(`/customers/${encodeURIComponent(customerId)}/customer-portal/session`, {
+        method: 'POST',
+        body: { return_url: returnUrl },
+      })
+      const url = readId(json.link)
+      if (!url) throw new Error('Dodo Payments did not return a portal link')
+      return { url }
     },
 
     async parseWebhook(rawBody, headers): Promise<DomainEvent> {

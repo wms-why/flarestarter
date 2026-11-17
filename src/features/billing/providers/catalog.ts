@@ -11,11 +11,10 @@
  * Every provider is first-class: nothing in this file special-cases Stripe. The
  * two flags that *do* differ between vendors are capabilities, not a hierarchy:
  *
- *   - `supportsPortal` — only Stripe's hosted customer portal is wired up in
- *     this template. The others get an in-app cancel button driven by
- *     `cancelMode` instead. (Dodo does have a portal, but it needs a
- *     pre-provisioned customer id this adapter deliberately does not create —
- *     see `dodo.ts`.)
+ *   - `supportsPortal` — Stripe and Dodo ship a hosted customer portal (Dodo's
+ *     adapter provisions the customer up front so its per-customer portal
+ *     session can be opened). Waffo, Creem and PayPal get an in-app cancel
+ *     button driven by `cancelMode` instead.
  *   - `cancelMode` — Stripe, Creem and Dodo cancel at period end; Waffo and
  *     PayPal cancel immediately (PayPal's API has no "cancel at period end"
  *     option). Callers must not assume cancellation is symmetric across
@@ -81,7 +80,9 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderMeta> = {
     logo: '/billing/dodo_32x32.svg',
     // PATCH `cancel_at_next_billing_date` keeps the paid period intact.
     cancelMode: 'at_period_end',
-    supportsPortal: false,
+    // Hosted portal via POST /customers/{id}/customer-portal/session. The id it
+    // needs is provisioned in `ensureCustomer` and written back by the webhook.
+    supportsPortal: true,
     // No partial: without the webhook key every delivery fails verification, so
     // a checkout that trusts it can never record a completion.
     requiredEnv: ['DODO_PAYMENTS_API_KEY', 'DODO_PAYMENTS_WEBHOOK_KEY'],

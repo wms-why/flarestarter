@@ -614,6 +614,60 @@ describe('8. Billing transitions (applyDomainEvent return value)', () => {
   })
 })
 
+/**
+ * 首次付款成功时厂商会同一秒并发投递多条订阅事件（Dodo 实测 4 条，Stripe 是
+ * created + updated）。跃迁判定若基于「写前快照」，几条同向事件会各自判出一次
+ * activated，`onProActivated` 里的欢迎邮件就会重复。判定因此被塞进 UPDATE 的
+ * WHERE 里（见 claimSubscriptionTransition），这组测试固定住它的语义。
+ */
+describe('8b. Activation is claimed at most once per row', () => {
+  const cid = () => `cus_claim_${crypto.randomUUID().slice(0, 8)}`
+  const upsert = (customerId: string, eventId: string, userId: string | null = null) => ({
+    type: 'subscription.upserted' as const, providerId: 'stripe' as const, userId,
+    eventId, customerId, subscriptionId: 'sub_c', status: 'active', plan: 'pro' as const,
+    productId: 'price_pro', currentPeriodEnd: Date.now() + 1e9, cancelAtPeriodEnd: false,
+  })
+
+  test('the second activation event for an already-entitled row is a no-op', async () => {
+    const db = createDb(env.DB); const userId = `cl-two-${crypto.randomUUID()}`; const customerId = cid()
+    await seedUserAndSubscription(db, { userId, customerId, status: 'none', plan: 'free' })
+
+    expect(await applyDomainEvent(db, upsert(customerId, 'c1'), Date.now()))
+      .toEqual({ kind: 'activated', userId, via: 'subscription' })
+    // The twin that arrived in the same second must not fire the hook again.
+    expect(await applyDomainEvent(db, upsert(customerId, 'c2'), Date.now())).toBeNull()
+  })
+
+  test('a row whose status is already active but whose plan never resolved still activates', async () => {
+    // Reachable in production: the first event's product id was missing from
+    // plans.ts, so the row was written `active` + `free`. The guard must key on
+    // "is this row entitled" (status AND plan), not status alone — otherwise the
+    // later event that finally resolves the plan would silently grant access
+    // without ever firing the activation hook.
+    const db = createDb(env.DB); const userId = `cl-plan-${crypto.randomUUID()}`; const customerId = cid()
+    await seedUserAndSubscription(db, { userId, customerId, status: 'active', plan: 'free' })
+
+    expect(await applyDomainEvent(db, upsert(customerId, 'c3'), Date.now()))
+      .toEqual({ kind: 'activated', userId, via: 'subscription' })
+  })
+
+  test('the vendor-issued customer id is written back, and never cleared by an event without one', async () => {
+    const db = createDb(env.DB); const userId = `cl-cus-${crypto.randomUUID()}`; const older = cid()
+    await seedUserAndSubscription(db, { userId, customerId: older, status: 'none', plan: 'free' })
+
+    const fresh = `cus_fresh_${crypto.randomUUID().slice(0, 8)}`
+    await applyDomainEvent(db, upsert(fresh, 'c4', userId), Date.now())
+    expect((await db.select().from(subscription).where(eq(subscription.userId, userId)))[0].customerId).toBe(fresh)
+
+    // An event that carries no customer (PayPal/Waffo charge events) must leave
+    // the stored id alone rather than wiping the portal's only handle. This also
+    // covers the no-transition path: the row is already entitled, so the claim
+    // fails, yet the field write must still land.
+    await applyDomainEvent(db, { ...upsert(fresh, 'c5', userId), customerId: null }, Date.now())
+    expect((await db.select().from(subscription).where(eq(subscription.userId, userId)))[0].customerId).toBe(fresh)
+  })
+})
+
 describe('9. handleWebhook fires onTransition after a successful apply', () => {
   test('calls onTransition with the transition produced by apply', async () => {
     const db = createDb(env.DB); const userId = `ot-${crypto.randomUUID()}`; const customerId = `cus_ot_${crypto.randomUUID().slice(0, 8)}`

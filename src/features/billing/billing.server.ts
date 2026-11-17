@@ -1,7 +1,7 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, notInArray, or } from 'drizzle-orm'
 import type { DB } from '@/db/client'
 import { subscription, processedWebhookEvents } from './billing.schema'
-import { resolveEntitlement, isActivePro, type DomainEvent, type Entitlement, type BillingTransition } from './entitlement'
+import { resolveEntitlement, isActivePro, ENTITLING_STATUS_LIST, type DomainEvent, type Entitlement, type BillingTransition } from './entitlement'
 import { scopeFromUser, ownedBy } from '@/db/scope'
 import { rawD1 } from '@/db/raw'
 import type { PaymentProvider } from './payment'
@@ -13,6 +13,7 @@ import { creditAccount, creditLedger } from '@/features/credits/credits.schema'
 import { applyCreditDelta, grantCredits, type GrantInput } from '@/features/credits/credits.server'
 import { packById } from '@/features/credits/credit-packs'
 import { resolveCreditPack } from '@/features/credits/credits.core'
+import { PLAN_TIER_ORDER } from './plans'
 
 /** 读用户 entitlement（经归属缝）。 */
 export async function getEntitlementFor(db: DB, userId: string): Promise<Entitlement> {
@@ -160,6 +161,49 @@ async function reverseCreditPurchase(
     now,
   })
   return true
+}
+
+/** 「已授权」= 状态在授权集合内且档位不低于 pro。与 `isActivePro` 一一对应，
+ *  只是用 SQL 谓词表达，供下面的条件更新在数据库里判定。 */
+const PRO_PLANS = PLAN_TIER_ORDER.slice(PLAN_TIER_ORDER.indexOf('pro'))
+const ENTITLED_SQL = and(
+  inArray(subscription.status, [...ENTITLING_STATUS_LIST]),
+  inArray(subscription.plan, [...PRO_PLANS]),
+)
+/** 「未授权」= 上面那个的补集，两个谓词必须保持互补。 */
+const NOT_ENTITLED_SQL = or(
+  notInArray(subscription.status, [...ENTITLING_STATUS_LIST]),
+  notInArray(subscription.plan, [...PRO_PLANS]),
+)
+
+/**
+ * 写入订阅字段，并**原子地**判定这次写入是否构成一次授权跃迁。
+ *
+ * 为什么不能「先读快照、再判跃迁、再写」：厂商在首次付款成功时会**同一秒并发**
+ * 投递多条订阅事件（Dodo 实测一次首付 4 条，其中 3 条订阅类；Stripe 是 created +
+ * updated）。每条事件各走一次 `applyDomainEvent`，若跃迁与否取决于写前读到的
+ * `wasPro`，几条同向事件会各自判出一次「从未授权到已授权」，`onProActivated`
+ * 这类钩子就重复触发。实测：欢迎邮件发了两封，而同一钩子里带幂等键的积分补发
+ * 只生效一次——差别不在事件，在副作用有没有兜底。
+ *
+ * 这里把判定塞进 UPDATE 的 WHERE：SQLite 串行化写，只有真正把行从「未授权」
+ * 翻到「已授权」（或反向）的那条能命中 1 行，其余命中 0 行。命中 0 行时仍要落
+ * 字段（期末、价格、失败标记），只是不产生跃迁，所以补一次无条件写。
+ */
+async function claimSubscriptionTransition(
+  db: DB,
+  rowId: string,
+  patch: Partial<typeof subscription.$inferInsert>,
+  entitlingNow: boolean,
+): Promise<'activated' | 'deactivated' | null> {
+  const claimed = await db
+    .update(subscription)
+    .set(patch)
+    .where(and(eq(subscription.id, rowId), entitlingNow ? NOT_ENTITLED_SQL : ENTITLED_SQL))
+    .returning({ id: subscription.id })
+  if (claimed.length > 0) return entitlingNow ? 'activated' : 'deactivated'
+  await db.update(subscription).set(patch).where(eq(subscription.id, rowId))
+  return null
 }
 
 /** 应用领域事件到订阅表（系统级，按 userId/customerId 定位）。返回发生的状态跃迁（供回调），无跃迁则 null。
@@ -316,16 +360,20 @@ export async function applyDomainEvent(
       )
     }
     const recovered = event.status === 'active' || event.status === 'trialing' // 扣款恢复 → 清除失败 flag
-    await db.update(subscription).set({
-      subscriptionId: event.subscriptionId, status: event.status, plan,
+    // 厂商侧的 customer id 落库：Dodo 在这里才第一次拿到它（下单时只有邮箱），
+    // 而客户门户是按 customer 开 session 的。事件不带 id 时保留行上已有的值，
+    // 别把 Stripe/Waffo 那种「事件无 customer」的厂商洗掉。
+    const customerId = event.customerId ?? row.customerId
+    const nowPro = isActivePro({ status: event.status, plan, lifetime: false })
+    const transition = await claimSubscriptionTransition(db, row.id, {
+      subscriptionId: event.subscriptionId, status: event.status, plan, customerId,
       priceId: event.productId ?? row.priceId, currentPeriodEnd: event.currentPeriodEnd,
       cancelAtPeriodEnd: event.cancelAtPeriodEnd, updatedAt: new Date(now),
       paymentFailedAt: recovered ? null : row.paymentFailedAt,
       lastEventAt: occurredAt ?? row.lastEventAt,
-    }).where(eq(subscription.id, row.id))
-    const nowPro = isActivePro({ status: event.status, plan, lifetime: false })
-    if (!wasPro && nowPro) return { kind: 'activated', userId: row.userId, via: 'subscription' }
-    if (wasPro && !nowPro) return { kind: 'deactivated', userId: row.userId, reason: 'past_due' }
+    }, nowPro)
+    if (transition === 'activated') return { kind: 'activated', userId: row.userId, via: 'subscription' }
+    if (transition === 'deactivated') return { kind: 'deactivated', userId: row.userId, reason: 'past_due' }
     return null
   }
   if (event.type === 'subscription.deleted') {
@@ -346,7 +394,7 @@ export async function applyDomainEvent(
 export async function startCheckout(
   db: DB,
   provider: PaymentProvider,
-  user: { id: string; email: string },
+  user: { id: string; email: string; name?: string },
   productId: string,
   successUrl: string,
   cancelUrl: string,
@@ -361,10 +409,13 @@ export async function startCheckout(
   if (existing && isActivePro(existing)) {
     throw new Error('already subscribed — manage the plan from your account page instead')
   }
-  const customerId = await provider.ensureCustomer(user, existing?.customerId ?? null)
   // provider 一并落库：webhook 到达时要靠它确认「这条事件有权改这一行」，
   // 取消也要靠它选出正确的适配器。
   const providerChanged = existing != null && existing.provider !== provider.id
+  // 换厂商时**不能**把旧厂商的 customer id 交给新厂商的 ensureCustomer：
+  // Stripe 与 Dodo 的 id 都以 `cus_` 开头，前缀分辨不出来，交错了会让建会话 404
+  // （Dodo）或把两个客户绑到一起（Stripe）。
+  const customerId = await provider.ensureCustomer(user, providerChanged ? null : (existing?.customerId ?? null))
   if (!existing) {
     await db.insert(subscription).values({
       id: crypto.randomUUID(),
@@ -502,7 +553,7 @@ export async function getProviderForUser(
   }
 }
 
-/** 打开客户门户（仅 Stripe 提供）。 */
+/** 打开客户门户（Stripe / Dodo 提供；其余厂商走 `cancelSubscriptionForUser`）。 */
 export async function openPortal(
   db: DB,
   provider: PaymentProvider,
@@ -514,7 +565,12 @@ export async function openPortal(
   }
   const rows = await db.select().from(subscription).where(ownedBy(subscription, scopeFromUser(userId)))
   const row = rows[0]
-  if (!row?.customerId) throw new Error('No subscription/customer for user')
+  // Dodo 的 customer 在下单时预建、由首条订阅事件回写到行上，所以一行到期前
+  // 理论上不会缺这个值；老数据（本功能上线前购买的）会是 null，此时给一句能
+  // 指导用户的话，而不是把内部说法直接抛到界面上。
+  if (!row?.customerId) {
+    throw new Error(`${provider.displayName} has no billing customer on file for this subscription — cancel from the account page instead`)
+  }
   return provider.createPortalSession(row.customerId, returnUrl)
 }
 
