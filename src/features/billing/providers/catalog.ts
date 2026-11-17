@@ -11,10 +11,12 @@
  * Every provider is first-class: nothing in this file special-cases Stripe. The
  * two flags that *do* differ between vendors are capabilities, not a hierarchy:
  *
- *   - `supportsPortal` — Stripe and Dodo ship a hosted customer portal (Dodo's
- *     adapter provisions the customer up front so its per-customer portal
- *     session can be opened). Waffo, Creem and PayPal get an in-app cancel
- *     button driven by `cancelMode` instead.
+ *   - `supportsPortal` — Stripe, Dodo and Creem ship a hosted customer portal.
+ *     All three mint the session per **customer**, so the adapter must have an
+ *     id in hand: Dodo provisions it up front, Creem looks it up by email (it
+ *     only creates the customer at checkout). Waffo and PayPal get an in-app
+ *     cancel button driven by `cancelMode` instead — neither exposes a
+ *     payer-management URL to merchants.
  *   - `cancelMode` — Stripe, Creem and Dodo cancel at period end; Waffo and
  *     PayPal cancel immediately (PayPal's API has no "cancel at period end"
  *     option). Callers must not assume cancellation is symmetric across
@@ -63,7 +65,10 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderMeta> = {
     displayName: 'Creem',
     logo: '/billing/creem_32x32.webp',
     cancelMode: 'at_period_end',
-    supportsPortal: false,
+    // Hosted portal via POST /v1/customers/billing { customer_id } →
+    // { customer_portal_link }. It is a magic-link page, so it cannot be themed
+    // and the customer id must already exist (`ensureCustomer` resolves it).
+    supportsPortal: true,
     requiredEnv: ['CREEM_API_KEY', 'CREEM_WEBHOOK_SECRET'],
   },
   paypal: {

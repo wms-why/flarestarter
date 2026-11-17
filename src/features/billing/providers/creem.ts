@@ -7,8 +7,11 @@
  * Two things worth knowing before editing:
  *   1. `CREEM_ENV` defaults to `test` (sandbox). A fresh dev env therefore
  *      cannot charge a real card even if the key is a live key.
- *   2. Creem never emits a stable customer id we can pre-create, so the local
- *      user is recovered from the `metadata.userId` we attached at checkout.
+ *   2. Creem creates the customer **during** checkout, so the paying user is
+ *      recovered from the `metadata.userId` we attached — never from a customer
+ *      id. The id itself is still tracked: webhooks carry it, and
+ *      `ensureCustomer` resolves it by email, because the hosted portal is
+ *      opened per customer.
  */
 import { Creem } from 'creem'
 import type { DomainEvent } from '../entitlement'
@@ -78,25 +81,44 @@ export function createCreemProvider(env: CreemEnv): PaymentProvider {
     supportsPortal: meta.supportsPortal,
     cancelMode: meta.cancelMode,
 
-    /** Creem has no customer-provisioning endpoint we can call before checkout;
-     *  the customer is created by the SDK on checkout creation. */
-    async ensureCustomer(_user, existingCustomerId) {
-      return existingCustomerId
+    /** Creem has no customer-provisioning step before checkout — the customer
+     *  is created by the SDK on checkout creation. We can still *find* one it
+     *  already knows by email, which is what makes the portal reachable for a
+     *  row that predates customer-id capture. A miss (404) is not an error:
+     *  checkout will create the customer instead. */
+    async ensureCustomer(user, existingCustomerId) {
+      if (existingCustomerId) return existingCustomerId
+      try {
+        const found = await client.customers.retrieve(undefined, user.email)
+        return found.id
+      } catch {
+        return null
+      }
     },
 
     async createCheckoutSession(input: CheckoutInput) {
       const checkout = await client.checkouts.create({
         productId: input.productId,
         successUrl: input.successUrl,
-        customer: { email: input.userEmail },
+        // Bind the checkout to the customer we already know, otherwise Creem
+        // starts a second customer record for the same person and the portal
+        // then shows only half their billing history. `id` and `email` are
+        // mutually exclusive on this field.
+        customer: input.customerId ? { id: input.customerId } : { email: input.userEmail },
         metadata: input.metadata,
       })
       if (!checkout.checkoutUrl) throw new Error('Creem did not return a checkout URL')
       return { url: checkout.checkoutUrl }
     },
 
-    async createPortalSession() {
-      throw new Error('Creem has no customer portal — use cancelSubscription instead')
+    /** Creem's portal is a magic-link page (`https://creem.io/my-orders/login/…`)
+     *  minted per customer. `returnUrl` is ignored: the endpoint accepts only a
+     *  customer id, so after managing the subscription the buyer stays on Creem
+     *  and navigates back themselves. */
+    async createPortalSession(customerId) {
+      const links = await client.customers.generateBillingLinks({ customerId })
+      if (!links.customerPortalLink) throw new Error('Creem did not return a customer portal link')
+      return { url: links.customerPortalLink }
     },
 
     async parseWebhook(rawBody, headers): Promise<DomainEvent> {

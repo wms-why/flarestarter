@@ -120,8 +120,8 @@ export function ManageSubscription({
       {error && <p className="m-0 text-sm text-destructive">{error}</p>}
       {isPaid ? (
         <div className="flex flex-wrap gap-2.5">
-          {/* Stripe and Dodo ship a hosted portal; the other vendors do not, so
-              the same screen offers an in-app cancel instead. */}
+          {/* Stripe, Dodo and Creem ship a hosted portal; Waffo and PayPal do
+              not, so the same screen offers an in-app cancel instead. */}
           {providerMeta?.supportsPortal ? (
             <Button variant="outline" onClick={manage} disabled={busy}>
               {t('billing.manageSubscription')}

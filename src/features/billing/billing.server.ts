@@ -556,7 +556,7 @@ export async function getProviderForUser(
   }
 }
 
-/** 打开客户门户（Stripe / Dodo 提供；其余厂商走 `cancelSubscriptionForUser`）。 */
+/** 打开客户门户（Stripe / Dodo / Creem 提供；其余厂商走 `cancelSubscriptionForUser`）。 */
 export async function openPortal(
   db: DB,
   provider: PaymentProvider,
@@ -568,9 +568,10 @@ export async function openPortal(
   }
   const rows = await db.select().from(subscription).where(ownedBy(subscription, scopeFromUser(userId)))
   const row = rows[0]
-  // Dodo 的 customer 在下单时预建、由首条订阅事件回写到行上，所以一行到期前
-  // 理论上不会缺这个值；老数据（本功能上线前购买的）会是 null，此时给一句能
-  // 指导用户的话，而不是把内部说法直接抛到界面上。
+  // customer 由谁写上行因厂商而异：Dodo 下单时预建、首条订阅事件回写；Creem
+  // 结账时才建，于是 `ensureCustomer` 按邮箱查回来，webhook 再回写一次。两条
+  // 路径都会让一行在到期前持有 id，老数据（本功能上线前买的）才会是 null——
+  // 此时给一句能指导用户的话，而不是把内部说法直接抛到界面上。
   if (!row?.customerId) {
     throw new Error(`${provider.displayName} has no billing customer on file for this subscription — cancel from the account page instead`)
   }

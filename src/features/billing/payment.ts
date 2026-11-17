@@ -39,7 +39,8 @@ export interface CheckoutInput {
 export interface PaymentProvider {
   readonly id: ProviderId
   readonly displayName: string
-  /** Whether the vendor ships a hosted self-service billing portal (Stripe, Dodo). */
+  /** Whether the vendor ships a hosted self-service billing portal
+   *  (Stripe, Dodo, Creem). */
   readonly supportsPortal: boolean
   /** Whether cancelling ends access now or at the end of the paid period. */
   readonly cancelMode: 'immediate' | 'at_period_end'

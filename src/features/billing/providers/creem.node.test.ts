@@ -1,7 +1,56 @@
-import { describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createCreemProvider, normalizeCreemEventType, type CreemEnv } from '@/features/billing/providers/creem'
 import { readPolymorphicId, toEpochMs } from '@/features/billing/providers/shared'
 import { creditPacks } from '@/features/credits/credit-packs'
+
+// `createCreemProvider` constructs the real SDK client eagerly, so the module is
+// replaced wholesale (same approach as email.server.node.test.ts). The fake
+// records every call, which lets a test assert the exact arguments the adapter
+// hands the SDK — that is the contract the portal and the customer binding rest
+// on. `vi.hoisted` keeps this reachable from the hoisted mock factory.
+const fake = vi.hoisted(() => {
+  const calls: { method: string; args: unknown[] }[] = []
+  const defaults = {
+    retrieve: async (_id?: string, _email?: string): Promise<{ id: string }> => {
+      throw new Error('404 no such customer')
+    },
+    generateBillingLinks: async (_req: { customerId: string }): Promise<{ customerPortalLink: string }> => ({
+      customerPortalLink: 'https://creem.io/my-orders/login/tok',
+    }),
+    checkoutsCreate: async (_req: Record<string, unknown>): Promise<{ checkoutUrl?: string }> => ({
+      checkoutUrl: 'https://checkout.creem.io/session',
+    }),
+  }
+  return { calls, defaults, impl: { ...defaults } }
+})
+
+vi.mock('creem', () => ({
+  Creem: class {
+    customers = {
+      retrieve: (id?: string, email?: string) => {
+        fake.calls.push({ method: 'customers.retrieve', args: [id, email] })
+        return fake.impl.retrieve(id, email)
+      },
+      generateBillingLinks: (req: { customerId: string }) => {
+        fake.calls.push({ method: 'customers.generateBillingLinks', args: [req] })
+        return fake.impl.generateBillingLinks(req)
+      },
+    }
+    checkouts = {
+      create: (req: Record<string, unknown>) => {
+        fake.calls.push({ method: 'checkouts.create', args: [req] })
+        return fake.impl.checkoutsCreate(req)
+      },
+    }
+  },
+}))
+
+beforeEach(() => {
+  fake.calls.length = 0
+  fake.impl.retrieve = fake.defaults.retrieve
+  fake.impl.generateBillingLinks = fake.defaults.generateBillingLinks
+  fake.impl.checkoutsCreate = fake.defaults.checkoutsCreate
+})
 
 const ENV: CreemEnv = {
   CREEM_API_KEY: 'creem_test_1',
@@ -221,14 +270,75 @@ describe('parseWebhook — status mapping', () => {
 })
 
 describe('provider capabilities', () => {
-  test('creem has no portal but cancels at period end', () => {
+  test('creem has a hosted portal and cancels at period end', () => {
     const provider = createCreemProvider(ENV)
-    expect(provider.supportsPortal).toBe(false)
+    expect(provider.supportsPortal).toBe(true)
     expect(provider.cancelMode).toBe('at_period_end')
     expect(provider.id).toBe('creem')
   })
 
-  test('createPortalSession throws with an actionable message', async () => {
-    await expect(createCreemProvider(ENV).createPortalSession('cus', 'https://x')).rejects.toThrow(/no customer portal/)
+  test('createPortalSession returns the magic link minted for that customer', async () => {
+    const { url } = await createCreemProvider(ENV).createPortalSession('cust_1', 'https://app.test/app/account')
+    expect(url).toBe('https://creem.io/my-orders/login/tok')
+    // `return_url` is not part of Creem's endpoint, so only the id is sent.
+    expect(fake.calls).toEqual([
+      { method: 'customers.generateBillingLinks', args: [{ customerId: 'cust_1' }] },
+    ])
+  })
+
+  test('a portal response without a link is an error, not a redirect to nowhere', async () => {
+    fake.impl.generateBillingLinks = async () => ({ customerPortalLink: '' })
+    await expect(createCreemProvider(ENV).createPortalSession('cust_1', 'https://x'))
+      .rejects.toThrow(/portal link/)
+  })
+})
+
+describe('ensureCustomer: the portal needs a customer id before checkout', () => {
+  test('a stored id is reused without asking Creem (no call, no latency)', async () => {
+    const id = await createCreemProvider(ENV).ensureCustomer({ id: 'u1', email: 'a@b.c' }, 'cust_known')
+    expect(id).toBe('cust_known')
+    expect(fake.calls).toEqual([])
+  })
+
+  test('with no stored id, an existing Creem customer is found by email', async () => {
+    fake.impl.retrieve = async () => ({ id: 'cust_by_email' })
+    const id = await createCreemProvider(ENV).ensureCustomer({ id: 'u1', email: 'a@b.c' }, null)
+    expect(id).toBe('cust_by_email')
+    // Looked up by email only: an id argument would have to come from the row,
+    // which is exactly what is missing here.
+    expect(fake.calls).toEqual([{ method: 'customers.retrieve', args: [undefined, 'a@b.c'] }])
+  })
+
+  test('a miss resolves to null so checkout creates the customer instead of failing', async () => {
+    await expect(createCreemProvider(ENV).ensureCustomer({ id: 'u1', email: 'a@b.c' }, null))
+      .resolves.toBeNull()
+  })
+})
+
+describe('checkout binds to a known customer', () => {
+  const CHECKOUT = {
+    userId: 'u1',
+    userEmail: 'buyer@example.com',
+    customerId: null,
+    productId: 'prod_pro',
+    mode: 'subscription' as const,
+    successUrl: 'https://app.test/ok',
+    cancelUrl: 'https://app.test/cancel',
+    metadata: { userId: 'u1', plan: 'pro' },
+  }
+
+  test('id when we have one, email otherwise — never both', async () => {
+    const provider = createCreemProvider(ENV)
+    await provider.createCheckoutSession({ ...CHECKOUT, customerId: 'cust_known' })
+    await provider.createCheckoutSession({ ...CHECKOUT, customerId: null })
+
+    const sent = fake.calls.map((c) => (c.args[0] as { customer: unknown }).customer)
+    expect(sent).toEqual([{ id: 'cust_known' }, { email: 'buyer@example.com' }])
+  })
+
+  test('a checkout without a URL is an error, not a redirect to nowhere', async () => {
+    fake.impl.checkoutsCreate = async () => ({})
+    await expect(createCreemProvider(ENV).createCheckoutSession(CHECKOUT))
+      .rejects.toThrow(/checkout URL/)
   })
 })

@@ -85,7 +85,7 @@ BILLING_PROVIDERS=stripe,waffo
 
 ### 归属用户:多数厂商没有可预建的 customer id
 
-Stripe / Dodo 允许预创建 customer（Dodo 预建是为了开客户门户：门户 session 按 customer 开）。但**归属从不依赖 customer id**——Waffo / Creem / PayPal / Dodo 的 webhook 都靠下单时写进 `metadata` 的 `userId` 回传(`applyDomainEvent` 优先按 `userId` 定位订阅行,其次按 `customerId`,都没有则忽略)。
+Stripe / Dodo / Creem 允许预创建 customer（Dodo 预建是为了开客户门户：门户 session 按 customer 开；Creem 结账时才建 customer，所以改为按邮箱查回来再用）。但**归属从不依赖 customer id**——Waffo / Creem / PayPal / Dodo 的 webhook 都靠下单时写进 `metadata` 的 `userId` 回传(`applyDomainEvent` 优先按 `userId` 定位订阅行,其次按 `customerId`,都没有则忽略)。
 
 `subscription.provider` 记录该行属于哪一家,**webhook 到达时会核对**:不属于本厂商的事件一律忽略。否则用户在 waffo 重新付费后,一条几小时前迟到的旧 Stripe 事件会把新订阅降级。
 
@@ -113,7 +113,7 @@ Stripe / Dodo 允许预创建 customer（Dodo 预建是为了开客户门户：�
 `getEntitlement()` 返回 `Entitlement`:`{ plan, status, isActive, currentPeriodEnd, lifetime, paymentFailed, provider }`。
 
 - `plan`:`free` | `pro` | `enterprise`。`isAtLeastTier(plan, 'pro')` 做门控(企业版天然过 Pro 门);`role === 'admin'` 直接放行。功能门控用 `hasProAccess(role, ent)`,计费 UI 保持用 `ent.plan` 反映真实订阅。
-- `provider`:决定账户页显示「管理订阅」(Stripe / Dodo 客户门户)还是「取消订阅」(Waffo / Creem / PayPal 站内取消),并按 `cancelMode` 提示**期末生效**还是**立即生效**——Creem / Dodo 是期末,Waffo / PayPal 没有「期末取消」这个选项,当场生效。
+- `provider`:决定账户页显示「管理订阅」(Stripe / Dodo / Creem 客户门户)还是「取消订阅」(Waffo / PayPal 站内取消),并按 `cancelMode` 提示**期末生效**还是**立即生效**——Creem / Dodo 是期末,Waffo / PayPal 没有「期末取消」这个选项,当场生效。
 - `lifetime`:一次性买断优先于一切 status。**当前 `startCheckout` 只开订阅模式**,所以一次性订单的 UI 入口还不存在;`lifetime` 列、`purchase.completed` / `purchase.refunded` 事件与对应逻辑保留着,是为存量数据和将来开放一次性商品准备的。⚠️ PayPal 的一次性分支目前**不可用**(`purchase.completed` 记的是 `related_ids.order_id`,而退款事件不带该字段,退款无法精确匹配),所以上架一次性商品前需要先补这条。
 - `paymentFailed`:续费扣款失败的**站内信号**(见下文)。
 
