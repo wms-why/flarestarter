@@ -15,9 +15,9 @@
  *     All three mint the session per **customer**, so the adapter must have an
  *     id in hand: Dodo provisions it up front, Creem looks it up by email (it
  *     only creates the customer at checkout). Waffo and PayPal get an in-app
- *     cancel button driven by `cancelMode` instead — Waffo does mint a
- *     management URL, but only for a subscription id its hosted-checkout flow
- *     never hands back, and PayPal has no such API at all. See each entry.
+ *     cancel button driven by `cancelMode` instead: Waffo sells a management
+ *     page through a different product line than the one we integrate, and
+ *     PayPal has no such API at all. See each entry.
  *   - `cancelMode` — Stripe, Creem and Dodo cancel at period end; Waffo and
  *     PayPal cancel immediately (PayPal's API has no "cancel at period end"
  *     option). Callers must not assume cancellation is symmetric across
@@ -63,14 +63,15 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderMeta> = {
     // this never revokes access early, and never after the vendor ends it,
     // because the terminal state only ever comes from the webhook.
     cancelMode: 'immediate',
-    // Waffo *does* mint a hosted management URL
-    // (POST /api/v1/subscription/manage → managementUrl, ~1 day expiry), but it
-    // is keyed on Waffo's own `subscriptionId`, which the hosted-checkout path
-    // never gives us: webhooks carry `orderId` only, `checkout.createSession`
-    // cannot set the merchant-side `subscriptionRequest`, and the SDK (0.11 and
-    // 0.28 alike) exposes no manage method. Reaching it would mean migrating
-    // Waffo to the raw /api/v1/subscription/create plus our own request
-    // signing — a rewrite, not a flag flip. Revisit only with that in scope.
+    // Pancake — the product this adapter talks to (api.waffo.ai) — has no
+    // management URL: its GraphQL surface is read-only (mutationType is null)
+    // and its action list has no manage/portal action. Verified against the
+    // live API, not just the SDK. Waffo does sell one, but through its separate
+    // acquiring API (POST /api/v1/subscription/manage); Pancake merchant
+    // credentials cannot reach that product, so it is not a wiring gap we could
+    // close here. What Pancake does expose is
+    // /v1/actions/subscription-order/reactivate-order — self-service we would
+    // have to build a screen for, not a portal to redirect to.
     supportsPortal: false,
     // The private key may be supplied in two shapes (raw PEM or base64), so
     // `registry.ts` gates on "either one" rather than this list alone.

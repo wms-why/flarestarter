@@ -73,10 +73,16 @@ export function normalizeWaffoEventType(raw: string): DomainEvent['type'] {
       return 'purchase.completed'
     case WebhookEventType.RefundSucceeded:
       return 'purchase.refunded'
+    // SDK 0.28 replaced the single `subscription.updated` with this set. Each
+    // still carries a newer snapshot of a live subscription, so each is applied
+    // as an upsert — that is what keeps the row in step with the vendor.
     case WebhookEventType.SubscriptionActivated:
     case WebhookEventType.SubscriptionPaymentSucceeded:
+    case WebhookEventType.SubscriptionRenewed:
+    case WebhookEventType.SubscriptionRecovered:
+    case WebhookEventType.SubscriptionPlanChanged:
+    case WebhookEventType.SubscriptionPlanChangeScheduled:
     case WebhookEventType.SubscriptionUncanceled:
-    case WebhookEventType.SubscriptionUpdated:
       return 'subscription.upserted'
     case WebhookEventType.SubscriptionCanceling:
       // Still active until the paid period ends.
@@ -86,6 +92,9 @@ export function normalizeWaffoEventType(raw: string): DomainEvent['type'] {
     case WebhookEventType.SubscriptionPastDue:
       return 'payment.failed'
     default:
+      // Covers `subscription.plan_change_failed` and `refund.failed`: neither
+      // changes what the user is entitled to, so applying them would only
+      // re-stamp the row with the state it already has.
       return 'ignored'
   }
 }

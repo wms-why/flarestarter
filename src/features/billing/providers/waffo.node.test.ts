@@ -71,6 +71,28 @@ describe('normalizeWaffoEventType', () => {
     expect(normalizeWaffoEventType(WebhookEventType.SubscriptionPastDue)).toBe('payment.failed')
   })
 
+  // SDK 0.28 split the old catch-all `subscription.updated` into these. Every
+  // one of them still means "here is a newer snapshot of a live subscription",
+  // so dropping any of them would freeze the row at its previous state.
+  test('the 0.28 lifecycle split (renewed / recovered / plan change / uncancel) all upsert', () => {
+    for (const event of [
+      WebhookEventType.SubscriptionRenewed,
+      WebhookEventType.SubscriptionRecovered,
+      WebhookEventType.SubscriptionPlanChanged,
+      WebhookEventType.SubscriptionPlanChangeScheduled,
+      WebhookEventType.SubscriptionUncanceled,
+    ]) {
+      expect(normalizeWaffoEventType(event), event).toBe('subscription.upserted')
+    }
+  })
+
+  test('failures that change no entitlement are ignored, not applied as a snapshot', () => {
+    // A refused plan change and a refused refund leave the subscription exactly
+    // as it was; treating either as an upsert would only re-stamp stale state.
+    expect(normalizeWaffoEventType(WebhookEventType.SubscriptionPlanChangeFailed)).toBe('ignored')
+    expect(normalizeWaffoEventType(WebhookEventType.RefundFailed)).toBe('ignored')
+  })
+
   test('unknown vendor events collapse to ignored', () => {
     expect(normalizeWaffoEventType('order.something_new')).toBe('ignored')
     expect(normalizeWaffoEventType('')).toBe('ignored')
