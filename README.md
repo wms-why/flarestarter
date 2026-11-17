@@ -74,7 +74,7 @@ Dark-first design with a terminal aesthetic. Every shot below is a real running 
 - **[Cloudflare Workers](https://workers.cloudflare.com)** runtime, deployed via the `@cloudflare/vite-plugin`
 - **[D1](https://developers.cloudflare.com/d1/)** (SQLite) with **[Drizzle ORM](https://orm.drizzle.team)** + migrations
 - **[KV](https://developers.cloudflare.com/kv/)** for caching, **[R2](https://developers.cloudflare.com/r2/)** for object storage — wired end-to-end (validated upload + private serving route), with avatar upload as the reference
-- **[better-auth](https://better-auth.com)**, **[Stripe](https://stripe.com)**, **[Waffo](https://waffo.ai)**, **[Creem](https://creem.io)**, **[PayPal](https://paypal.com)**, **[Resend](https://resend.com)** or **[Flowmails](https://flowmails.net)** for email
+- **[better-auth](https://better-auth.com)**, **[Stripe](https://stripe.com)**, **[Waffo](https://waffo.ai)**, **[Creem](https://creem.io)**, **[PayPal](https://paypal.com)**, **[Dodo Payments](https://dodopayments.com)**, **[Resend](https://resend.com)** or **[Flowmails](https://flowmails.net)** for email
 - **[Tailwind CSS v4](https://tailwindcss.com)**
 - **[Vitest](https://vitest.dev)** (Node unit tests + Workers/D1 integration tests via `@cloudflare/vitest-pool-workers`)
 
@@ -157,7 +157,7 @@ See [`.dev.vars.example`](.dev.vars.example) for the full list. Locally everythi
 - `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (also drives canonical/sitemap origin) — **required**; validated at startup ([security](https://flarestarter.com/docs/platform/security))
 - `EMAIL_PROVIDER` (email provider — `resend` (default) or `flowmails`); `RESEND_API_KEY` / `EMAIL_FLOWMAILS_APIKEY` (only the selected provider's key is read — there is no fallback between them), `EMAIL_FROM` (blank → console-captured)
 - `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` (optional social login)
-- `BILLING_PROVIDERS` (billing provider roster — `stripe,waffo,creem,paypal`; unset = all, each still secret-gated); `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`; `WAFFO_*`, `CREEM_*`, `PAYPAL_*` for the others. **Product ids live in `src/features/billing/plans.ts`**, not in env. `STRIPE_WECHAT_PAY_ENABLED` (optional — set `false` to turn off WeChat Pay on the sponsor page)
+- `BILLING_PROVIDERS` (billing provider roster — `stripe,waffo,creem,paypal,dodo`; unset = all, each still secret-gated); `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`; `WAFFO_*`, `CREEM_*`, `PAYPAL_*`, `DODO_PAYMENTS_*` for the others. **Product ids live in `src/features/billing/plans.ts`**, not in env. `STRIPE_WECHAT_PAY_ENABLED` (optional — set `false` to turn off WeChat Pay on the sponsor page)
 - `ADMIN_EMAILS`
 - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (optional bot protection — [security](https://flarestarter.com/docs/platform/security))
 - `SENTRY_DSN` (optional server-side error reporting — [observability](https://flarestarter.com/docs/platform/observability)). Web Analytics needs no env var: Cloudflare injects the beacon at the edge once you enable it in the dashboard.

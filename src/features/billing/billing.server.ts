@@ -570,7 +570,7 @@ const STALE_CLAIM_MS = 60_000
  * webhook 编排：验签（由 parse 负责）→幂等认领→落库→标记落定→（成功后）best-effort 触发跃迁回调。
  * 返回 HTTP 状态码。
  *
- * `providerId` 只用于给幂等键加命名空间（`${providerId}:${eventId}`）——四家的事件 ID
+ * `providerId` 只用于给幂等键加命名空间（`${providerId}:${eventId}`）——各家的事件 ID
  * 各自独立，混在一个表里必须有这个前缀才不会互相吞掉对方的重投。
  */
 export async function handleWebhook(

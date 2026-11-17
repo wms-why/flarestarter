@@ -20,19 +20,21 @@ const ALL_SECRETS: BillingEnv = {
   PAYPAL_CLIENT_ID: 'cid',
   PAYPAL_CLIENT_SECRET: 'csecret',
   PAYPAL_WEBHOOK_ID: 'WH-1',
+  DODO_PAYMENTS_API_KEY: 'dodo_test_1',
+  DODO_PAYMENTS_WEBHOOK_KEY: 'whsec_dodo',
 }
 
 describe('parseEnabledProviders', () => {
   test('unset or empty means all four — secret gating still applies downstream', () => {
-    expect(parseEnabledProviders(undefined)).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
-    expect(parseEnabledProviders(null)).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
-    expect(parseEnabledProviders('')).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
-    expect(parseEnabledProviders('   ')).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
+    expect(parseEnabledProviders(undefined)).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
+    expect(parseEnabledProviders(null)).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
+    expect(parseEnabledProviders('')).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
+    expect(parseEnabledProviders('   ')).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
   })
 
   test('a list of only separators is a typo, not an intent to disable everything', () => {
-    expect(parseEnabledProviders(',,')).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
-    expect(parseEnabledProviders(' , , ')).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
+    expect(parseEnabledProviders(',,')).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
+    expect(parseEnabledProviders(' , , ')).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
   })
 
   test('trims, de-duplicates, and preserves the operator’s ordering', () => {
@@ -42,7 +44,7 @@ describe('parseEnabledProviders', () => {
 
   test('drops unknown ids instead of crashing the page', () => {
     expect(parseEnabledProviders('stripe,paddle')).toEqual(['stripe'])
-    expect(parseEnabledProviders('paddle')).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
+    expect(parseEnabledProviders('paddle')).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
   })
 
   test('removing every id disables all providers', () => {
@@ -51,14 +53,14 @@ describe('parseEnabledProviders', () => {
 })
 
 describe('hasRequiredSecrets', () => {
-  test('a fully configured env satisfies all four', () => {
-    for (const id of ['stripe', 'waffo', 'creem', 'paypal'] as const) {
+  test('a fully configured env satisfies every provider', () => {
+    for (const id of ['stripe', 'waffo', 'creem', 'paypal', 'dodo'] as const) {
       expect(hasRequiredSecrets(ALL_SECRETS, id), id).toBe(true)
     }
   })
 
   test('an empty env satisfies none', () => {
-    for (const id of ['stripe', 'waffo', 'creem', 'paypal'] as const) {
+    for (const id of ['stripe', 'waffo', 'creem', 'paypal', 'dodo'] as const) {
       expect(hasRequiredSecrets({}, id), id).toBe(false)
     }
   })
@@ -66,6 +68,7 @@ describe('hasRequiredSecrets', () => {
   test('a half-configured provider is not configured', () => {
     expect(hasRequiredSecrets({ ...ALL_SECRETS, STRIPE_SECRET_KEY: undefined }, 'stripe')).toBe(false)
     expect(hasRequiredSecrets({ ...ALL_SECRETS, PAYPAL_WEBHOOK_ID: undefined }, 'paypal')).toBe(false)
+    expect(hasRequiredSecrets({ ...ALL_SECRETS, DODO_PAYMENTS_WEBHOOK_KEY: undefined }, 'dodo')).toBe(false)
   })
 
   test('waffo accepts either private-key encoding', () => {

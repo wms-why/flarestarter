@@ -69,6 +69,7 @@ const envSchema = z
     WAFFO_ENV: optional,
     CREEM_ENV: optional,
     PAYPAL_ENV: optional,
+    DODO_ENV: optional,
     WAFFO_MERCHANT_ID: optional,
     WAFFO_PRIVATE_KEY: optional,
     WAFFO_PRIVATE_KEY_BASE64: optional,
@@ -78,6 +79,8 @@ const envSchema = z
     PAYPAL_CLIENT_ID: optional,
     PAYPAL_CLIENT_SECRET: optional,
     PAYPAL_WEBHOOK_ID: optional,
+    DODO_PAYMENTS_API_KEY: optional,
+    DODO_PAYMENTS_WEBHOOK_KEY: optional,
     // Kill switch for WeChat Pay on sponsorships — see features/sponsor/sponsor.config.ts.
     STRIPE_WECHAT_PAY_ENABLED: optional,
     ADMIN_EMAILS: optional,
@@ -111,6 +114,7 @@ const envSchema = z
     }
     if (enabled.includes('creem')) pair('CREEM_API_KEY', 'CREEM_WEBHOOK_SECRET', 'Creem')
     if (enabled.includes('paypal')) pair('PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PayPal')
+    if (enabled.includes('dodo')) pair('DODO_PAYMENTS_API_KEY', 'DODO_PAYMENTS_WEBHOOK_KEY', 'Dodo Payments')
 
     // A Stripe secret key with no webhook secret means webhooks fail signature
     // verification silently.
@@ -266,6 +270,9 @@ const REQUIRED_SECRETS: Record<string, string[]> = {
   waffo: ['WAFFO_MERCHANT_ID', 'WAFFO_WEBHOOK_PUBLIC_KEY'],
   creem: ['CREEM_API_KEY', 'CREEM_WEBHOOK_SECRET'],
   paypal: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_WEBHOOK_ID'],
+  // The webhook key is required too: without it every delivery fails
+  // verification, so a completed checkouts would never grant anything.
+  dodo: ['DODO_PAYMENTS_API_KEY', 'DODO_PAYMENTS_WEBHOOK_KEY'],
 }
 
 let checked = false

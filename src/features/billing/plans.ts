@@ -86,7 +86,7 @@ export const planTiers = [
       { text: { en: 'Cloudflare Workers one-command deploy', zh: '一条命令部署到 Cloudflare Workers' }, enabled: true },
       { text: { en: 'Auth, D1, KV, R2, admin console', zh: '认证、D1、KV、R2、后台管理' }, enabled: true },
       { text: { en: 'Dark mode + English / Chinese', zh: '暗色模式 + 中英双语' }, enabled: true },
-      { text: { en: 'Stripe / Waffo / Creem / PayPal billing wired up', zh: '内建 Stripe / Waffo / Creem / PayPal 计费' }, enabled: true },
+      { text: { en: 'Stripe / Waffo / Creem / PayPal / Dodo billing wired up', zh: '内建 Stripe / Waffo / Creem / PayPal / Dodo 计费' }, enabled: true },
       { text: { en: 'Priority support', zh: '优先支持' }, enabled: false },
       { text: { en: 'Team seats', zh: '团队席位' }, enabled: false },
     ],
@@ -110,11 +110,12 @@ export const planTiers = [
         waffo: UNSET,
         creem: UNSET,
         paypal: UNSET, // must start with `P-` (a PayPal subscription plan id)
+        dodo: UNSET, // a Dodo product id (`pdt_…`)
       },
     },
     yearly: {
       amountUsd: 90,
-      productIds: { stripe: UNSET, waffo: UNSET, creem: UNSET, paypal: UNSET },
+      productIds: { stripe: UNSET, waffo: UNSET, creem: UNSET, paypal: UNSET, dodo: UNSET },
     },
     bullets: [
       { text: { en: 'Everything in the Free tier', zh: '免费版的全部功能' }, enabled: true },
@@ -136,11 +137,11 @@ export const planTiers = [
     featured: false,
     monthly: {
       amountUsd: 39,
-      productIds: { stripe: UNSET, waffo: UNSET, creem: UNSET, paypal: UNSET },
+      productIds: { stripe: UNSET, waffo: UNSET, creem: UNSET, paypal: UNSET, dodo: UNSET },
     },
     yearly: {
       amountUsd: 390,
-      productIds: { stripe: UNSET, waffo: UNSET, creem: UNSET, paypal: UNSET },
+      productIds: { stripe: UNSET, waffo: UNSET, creem: UNSET, paypal: UNSET, dodo: UNSET },
     },
     bullets: [
       { text: { en: 'Everything in the Pro tier', zh: 'Pro 版的全部功能' }, enabled: true },

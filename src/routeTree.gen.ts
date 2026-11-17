@@ -32,6 +32,7 @@ import { Route as Char123LocaleChar125WaitlistRouteImport } from './routes/{-$lo
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAvatarsSplatRouteImport } from './routes/api/avatars/$'
 import { Route as ApiWebhooksCreemRouteImport } from './routes/api/webhooks/creem'
+import { Route as ApiWebhooksDodoRouteImport } from './routes/api/webhooks/dodo'
 import { Route as ApiWebhooksPaypalRouteImport } from './routes/api/webhooks/paypal'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as ApiWebhooksWaffoRouteImport } from './routes/api/webhooks/waffo'
@@ -177,6 +178,11 @@ const ApiWebhooksCreemRoute = ApiWebhooksCreemRouteImport.update({
   path: '/api/webhooks/creem',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksDodoRoute = ApiWebhooksDodoRouteImport.update({
+  id: '/api/webhooks/dodo',
+  path: '/api/webhooks/dodo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksPaypalRoute = ApiWebhooksPaypalRouteImport.update({
   id: '/api/webhooks/paypal',
   path: '/api/webhooks/paypal',
@@ -313,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$': typeof ApiAvatarsSplatRoute
   '/api/webhooks/creem': typeof ApiWebhooksCreemRoute
+  '/api/webhooks/dodo': typeof ApiWebhooksDodoRoute
   '/api/webhooks/paypal': typeof ApiWebhooksPaypalRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/api/webhooks/waffo': typeof ApiWebhooksWaffoRoute
@@ -355,6 +362,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$': typeof ApiAvatarsSplatRoute
   '/api/webhooks/creem': typeof ApiWebhooksCreemRoute
+  '/api/webhooks/dodo': typeof ApiWebhooksDodoRoute
   '/api/webhooks/paypal': typeof ApiWebhooksPaypalRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/api/webhooks/waffo': typeof ApiWebhooksWaffoRoute
@@ -400,6 +408,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$': typeof ApiAvatarsSplatRoute
   '/api/webhooks/creem': typeof ApiWebhooksCreemRoute
+  '/api/webhooks/dodo': typeof ApiWebhooksDodoRoute
   '/api/webhooks/paypal': typeof ApiWebhooksPaypalRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/api/webhooks/waffo': typeof ApiWebhooksWaffoRoute
@@ -446,6 +455,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatars/$'
     | '/api/webhooks/creem'
+    | '/api/webhooks/dodo'
     | '/api/webhooks/paypal'
     | '/api/webhooks/stripe'
     | '/api/webhooks/waffo'
@@ -488,6 +498,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatars/$'
     | '/api/webhooks/creem'
+    | '/api/webhooks/dodo'
     | '/api/webhooks/paypal'
     | '/api/webhooks/stripe'
     | '/api/webhooks/waffo'
@@ -532,6 +543,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatars/$'
     | '/api/webhooks/creem'
+    | '/api/webhooks/dodo'
     | '/api/webhooks/paypal'
     | '/api/webhooks/stripe'
     | '/api/webhooks/waffo'
@@ -568,6 +580,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarsSplatRoute: typeof ApiAvatarsSplatRoute
   ApiWebhooksCreemRoute: typeof ApiWebhooksCreemRoute
+  ApiWebhooksDodoRoute: typeof ApiWebhooksDodoRoute
   ApiWebhooksPaypalRoute: typeof ApiWebhooksPaypalRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   ApiWebhooksWaffoRoute: typeof ApiWebhooksWaffoRoute
@@ -734,6 +747,13 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/creem'
       fullPath: '/api/webhooks/creem'
       preLoaderRoute: typeof ApiWebhooksCreemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/dodo': {
+      id: '/api/webhooks/dodo'
+      path: '/api/webhooks/dodo'
+      fullPath: '/api/webhooks/dodo'
+      preLoaderRoute: typeof ApiWebhooksDodoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/paypal': {
@@ -970,6 +990,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarsSplatRoute: ApiAvatarsSplatRoute,
   ApiWebhooksCreemRoute: ApiWebhooksCreemRoute,
+  ApiWebhooksDodoRoute: ApiWebhooksDodoRoute,
   ApiWebhooksPaypalRoute: ApiWebhooksPaypalRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   ApiWebhooksWaffoRoute: ApiWebhooksWaffoRoute,

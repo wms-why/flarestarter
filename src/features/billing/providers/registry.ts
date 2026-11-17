@@ -17,6 +17,7 @@ import { priceFor } from '../plans'
 import type { PaymentProvider } from '../payment'
 import { PROVIDER_CATALOG, PROVIDER_IDS, isProviderId, type ProviderId } from './catalog'
 import { createCreemProvider } from './creem'
+import { createDodoProvider } from './dodo'
 import { isSubscriptionPlanId } from './paypal'
 import { createPaypalProvider } from './paypal'
 import { createStripeProvider } from './stripe'
@@ -39,6 +40,9 @@ export interface BillingEnv {
   PAYPAL_CLIENT_SECRET?: string
   PAYPAL_WEBHOOK_ID?: string
   PAYPAL_ENV?: string
+  DODO_PAYMENTS_API_KEY?: string
+  DODO_PAYMENTS_WEBHOOK_KEY?: string
+  DODO_ENV?: string
 }
 
 /**
@@ -48,7 +52,7 @@ export interface BillingEnv {
  * preserving first-seen order (so the display order matches what the operator
  * wrote), and unknown ids discarded rather than crashing the page.
  *
- * **Unset or empty means all four**, not none. Each is still secret-gated, so
+ * **Unset or empty means every provider**, not none. Each is still secret-gated, so
  * this cannot enable anything the operator has not configured — and it means a
  * fresh install that sets, say, Creem keys gets a working checkout without
  * having to discover this variable first. Turning a provider off is explicit:
@@ -103,6 +107,8 @@ export function getBillingProvider(env: BillingEnv, id: ProviderId): PaymentProv
       return createCreemProvider(env as Parameters<typeof createCreemProvider>[0])
     case 'paypal':
       return createPaypalProvider(env as Parameters<typeof createPaypalProvider>[0])
+    case 'dodo':
+      return createDodoProvider(env as Parameters<typeof createDodoProvider>[0])
   }
 }
 

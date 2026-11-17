@@ -30,10 +30,11 @@ export interface CheckoutInput {
  * is superficial — each encodes quirks specific to its vendor (Waffo's
  * `orderStatus` vocabulary and date-only period ends, Creem's polymorphic
  * `string | {id}` relations and `scheduled_cancel` state, PayPal's five-header
- * remote verification and its `P-` plan-id routing). A shared abstraction would
- * make every vendor's quirks a potential regression for the other three, which
- * is a bad trade at four providers. Re-raise this only if a fifth vendor
- * genuinely needs shared structure.
+ * remote verification and its `P-` plan-id routing, Dodo's Standard Webhooks
+ * triple header and the `payment.succeeded`-for-subscription-invoices trap). A
+ * shared abstraction would make every vendor's quirks a potential regression
+ * for the others, which is a bad trade at five providers. Re-raise this only if
+ * a vendor genuinely needs shared structure.
  */
 export interface PaymentProvider {
   readonly id: ProviderId

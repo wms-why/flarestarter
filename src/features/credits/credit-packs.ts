@@ -33,21 +33,21 @@ export const creditPacks: readonly CreditPack[] = [
     name: { en: 'Starter pack', zh: '入门包' },
     credits: 1_000,
     amountUsd: 5,
-    productIds: { stripe: '', waffo: '', creem: '', paypal: '' },
+    productIds: { stripe: '', waffo: '', creem: '', paypal: '', dodo: '' },
   },
   {
     id: 'growth',
     name: { en: 'Growth pack', zh: '成长包' },
     credits: 5_000,
     amountUsd: 20,
-    productIds: { stripe: '', waffo: '', creem: '', paypal: '' },
+    productIds: { stripe: '', waffo: '', creem: '', paypal: '', dodo: '' },
   },
   {
     id: 'scale',
     name: { en: 'Scale pack', zh: '企业包' },
     credits: 20_000,
     amountUsd: 60,
-    productIds: { stripe: '', waffo: '', creem: '', paypal: '' },
+    productIds: { stripe: '', waffo: '', creem: '', paypal: '', dodo: '' },
   },
 ] as const satisfies readonly CreditPack[]
 

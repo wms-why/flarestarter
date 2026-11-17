@@ -7,10 +7,10 @@ import { applyDomainEvent, handleWebhook } from './billing.server'
 /**
  * Shared webhook skeleton for every vendor.
  *
- * The four routes differ only in *which* provider verifies the delivery; the
+ * The provider routes differ only in *which* adapter verifies the delivery; the
  * ordering constraints that actually bite are identical, so they live here once:
  *
- *   1. **Read the raw body before anything parses it.** Waffo and Creem sign the
+ *   1. **Read the raw body before anything parses it.** Waffo, Creem and Dodo sign the
  *      exact bytes they sent, so a `JSON.parse` → `JSON.stringify` round trip
  *      upstream of verification produces a spurious failure. This is the single
  *      most common way to break a webhook integration.

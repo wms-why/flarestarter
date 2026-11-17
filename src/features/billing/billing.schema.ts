@@ -4,14 +4,14 @@ import { user } from '@/features/auth/auth.schema'
 export const subscription = sqliteTable('subscription', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
-  // Which vendor owns this row: 'stripe' | 'waffo' | 'creem' | 'paypal'.
+  // Which vendor owns this row: 'stripe' | 'waffo' | 'creem' | 'paypal' | 'dodo'.
   // Decides portal vs in-app cancel, and gates inbound webhooks — an event from
   // a vendor that does not own the row is ignored (see applyDomainEvent).
   provider: text('provider').notNull().default('stripe'),
   // Nullable because PayPal exposes no stable customer id we can pre-create.
   customerId: text('customer_id'),
   // Vendor-side subscription identifier (Stripe sub_… / Waffo orderId /
-  // Creem subscription id / PayPal I-…). What cancelSubscription receives.
+  // Creem subscription id / PayPal I-… / Dodo sub_…). What cancelSubscription receives.
   subscriptionId: text('subscription_id'),
   status: text('status').notNull().default('none'),
   // 'free' | 'pro' | 'enterprise'. Text rather than an enum so plans.ts can gain

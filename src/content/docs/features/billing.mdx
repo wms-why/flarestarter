@@ -2,7 +2,7 @@
 title: "计费与订阅"
 ---
 
-四种支付服务商(Stripe / Waffo / Creem / PayPal)可任意组合启停,档位与商品 ID 全部收敛在一个配置文件里,webhook 幂等落库、套餐门控、扣款失败(dunning)站内提示。本页讲**档位配置**、**支付商开关**、**webhook 处理**与**权益模型**。
+五种支付服务商(Stripe / Waffo / Creem / PayPal / Dodo Payments)可任意组合启停,档位与商品 ID 全部收敛在一个配置文件里,webhook 幂等落库、套餐门控、扣款失败(dunning)站内提示。本页讲**档位配置**、**支付商开关**、**webhook 处理**与**权益模型**。
 
 ## 一个文件决定全部:`features/billing/plans.ts`
 
@@ -15,7 +15,7 @@ export const planTiers = [
     name: { en: 'Pro', zh: 'Pro' },
     summary: { ... },
     featured: true,
-    monthly: { amountUsd: 9,  productIds: { stripe: 'price_…', waffo: 'PROD_…', creem: 'prod_…', paypal: 'P-…' } },
+    monthly: { amountUsd: 9,  productIds: { stripe: 'price_…', waffo: 'PROD_…', creem: 'prod_…', paypal: 'P-…', dodo: 'pdt_…' } },
     yearly:  { amountUsd: 90, productIds: { ... } },
     bullets: [
       { text: { en: 'Everything in the Free tier', zh: '免费版的全部功能' }, enabled: true },
@@ -40,8 +40,8 @@ export const planTiers = [
 BILLING_PROVIDERS=stripe,waffo
 ```
 
-- **未设置或为空 = 四家全开**,但每家仍各自受密钥门控。这样「配了 Creem 密钥却忘了配开关」不会静默失效;真正关闭某一家,就把它的 id 从列表里删掉。
-- 注意区分两个概念:定价页的 **logo 条**只反映开关(「我们接受哪些支付方式」),而**结账页的按钮**是开关 ∩ 密钥 ∩ 商品 ID 三者交集(「现在点什么真能付」)。所以全新克隆的部署会在 logo 条上看到四家、而在结账页看到零家——这是设计如此,填完 `plans.ts` 商品 ID 后即一致。
+- **未设置或为空 = 各家全开**,但每家仍各自受密钥门控。这样「配了 Creem 密钥却忘了配开关」不会静默失效;真正关闭某一家,就把它的 id 从列表里删掉。
+- 注意区分两个概念:定价页的 **logo 条**只反映开关(「我们接受哪些支付方式」),而**结账页的按钮**是开关 ∩ 密钥 ∩ 商品 ID 三者交集(「现在点什么真能付」)。所以全新克隆的部署会在 logo 条上看到全部五家、而在结账页看到零家——这是设计如此,填完 `plans.ts` 商品 ID 后即一致。
 - 一个服务商要真正出现在结账页,必须同时满足三条:①在 `BILLING_PROVIDERS` 里 ②该家密钥齐全 ③`plans.ts` 里该档该周期的 `productIds[id]` 非空。
 - 判定只有一处:`providers/registry.ts` 的 `resolvePurchase(env, tier, interval, provider)`。**结账页渲染按钮和 `startCheckout` 建会话调用的是同一个函数**,所以「页面上能点的按钮」和「点了真能付」不可能不一致——包括 PayPal 的 `P-` 前缀校验,它同时作用在两条路径上(否则页面会画出一个必然报错的按钮)。`startCheckout` 仍是安全边界:客户端传来的 `provider` 会被重新判定一次。
 
@@ -51,8 +51,9 @@ BILLING_PROVIDERS=stripe,waffo
 | Waffo Pancake | `WAFFO_MERCHANT_ID`、`WAFFO_PRIVATE_KEY`(或 `WAFFO_PRIVATE_KEY_BASE64`)、`WAFFO_WEBHOOK_PUBLIC_KEY` | `WAFFO_ENV` |
 | Creem | `CREEM_API_KEY`、`CREEM_WEBHOOK_SECRET` | `CREEM_ENV` |
 | PayPal | `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET`、`PAYPAL_WEBHOOK_ID` | `PAYPAL_ENV` |
+| Dodo Payments | `DODO_PAYMENTS_API_KEY`、`DODO_PAYMENTS_WEBHOOK_KEY` | `DODO_ENV` |
 
-`CREEM_ENV` / `PAYPAL_ENV` / `WAFFO_ENV` **默认沙箱**,上生产需显式设成 `live`。
+`CREEM_ENV` / `PAYPAL_ENV` / `DODO_ENV` / `WAFFO_ENV` **默认沙箱**,上生产需显式设成 `live`。
 
 `env-validate.ts` 在启动时对两种情况给出提示:
 
@@ -71,22 +72,24 @@ BILLING_PROVIDERS=stripe,waffo
 | Waffo | `/api/webhooks/waffo` | `x-waffo-signature` |
 | Creem | `/api/webhooks/creem` | `creem-signature` |
 | PayPal | `/api/webhooks/paypal` | 5 个 `paypal-*` 头 |
+| Dodo Payments | `/api/webhooks/dodo` | `webhook-id` / `webhook-timestamp` / `webhook-signature`(Standard Webhooks) |
 
 本地开发把公网隧道指向 Vite dev server 即可(例如 `https://<tunnel>/api/webhooks/creem`)。
 
 验签方式各不相同:
 
-- **Waffo / Creem** 覆盖**原始字节**,所以路由必须先 `await request.text()` 再做任何解析。任何「先 parse 再序列化」的写法都会让签名校验假性失败——`webhook-handler.ts` 把这个顺序收敛到一处。
+- **Waffo / Creem / Dodo** 覆盖**原始字节**,所以路由必须先 `await request.text()` 再做任何解析。任何「先 parse 再序列化」的写法都会让签名校验假性失败——`webhook-handler.ts` 把这个顺序收敛到一处。
+- **Dodo** 用 Standard Webhooks:HMAC-SHA256 覆盖 `webhook-id.webhook-timestamp.原始 body`,签名头里可能并列多个 `v1,<base64>`(轮换密钥时旧密钥 24h 内仍有效),任意一个匹配即通过;时间戳偏移超过 5 分钟直接拒绝,否则一条泄露的投递可以被无限重放。同一套 header 里的 `webhook-id` 同时就是幂等键。
 - **PayPal** 的 RSA 签名需要 X.509 证书链,而 Workers 没有 `crypto.createVerify`,因此改为把投递转发到 PayPal 官方的 `verify-webhook-signature` 接口由它裁决。**该接口 5xx 时路由回 502**(让 PayPal 重投),签名判定失败回 400——两者混为一谈会静默丢掉真实付款事件。
 - **Stripe** 的路由是唯一一个手写的:赞助和产品计费共用它,验签一次后分流。
 
-### 归属用户:三家没有 customer id
+### 归属用户:多数厂商没有可预建的 customer id
 
-只有 Stripe 允许预创建 customer。Waffo / Creem / PayPal 的 webhook 靠下单时写进 `metadata` 的 `userId` 回传(`applyDomainEvent` 优先按 `userId` 定位订阅行,其次按 `customerId`,都没有则忽略)。
+只有 Stripe 允许预创建 customer。Waffo / Creem / PayPal / Dodo 的 webhook 靠下单时写进 `metadata` 的 `userId` 回传(`applyDomainEvent` 优先按 `userId` 定位订阅行,其次按 `customerId`,都没有则忽略)。
 
 `subscription.provider` 记录该行属于哪一家,**webhook 到达时会核对**:不属于本厂商的事件一律忽略。否则用户在 waffo 重新付费后,一条几小时前迟到的旧 Stripe 事件会把新订阅降级。
 
-幂等键写作 `${providerId}:${eventId}`,四家的事件 ID 因此不会互相吞掉重投。
+幂等键写作 `${providerId}:${eventId}`,各家的事件 ID 因此不会互相吞掉重投。
 
 ## 取消订阅:我们只写意图,厂商 webhook 写终态
 
@@ -103,7 +106,7 @@ BILLING_PROVIDERS=stripe,waffo
 
 **已知取舍**:若 webhook 丢失(例如验签 400 这类不会被重投的情况),行会停在 `canceling`。这是刻意的——停在 `canceling` 用户看得见并会重试;停在 `active` 则会静默地继续扣费。
 
-另外 **`canceling` 仍然算有效权益**:期末生效型厂商(Creem 的 scheduled_cancel、Stripe 的 `cancel_at_period_end`)表示「已付费周期结束前仍然可用」。如果把 `canceling` 排除在有效状态外,一个刚点了取消的用户会在周期结束前立刻失去已付费的权益。
+另外 **`canceling` 仍然算有效权益**:期末生效型厂商(Creem 的 scheduled_cancel、Stripe 的 `cancel_at_period_end`、Dodo 的 `cancel_at_next_billing_date`)表示「已付费周期结束前仍然可用」。如果把 `canceling` 排除在有效状态外,一个刚点了取消的用户会在周期结束前立刻失去已付费的权益。
 
 ## 权益模型(`entitlement.ts`)
 

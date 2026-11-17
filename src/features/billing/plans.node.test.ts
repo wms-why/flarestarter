@@ -176,7 +176,7 @@ describe('formatUsd', () => {
 
 describe('provider catalog', () => {
   test('every provider id is a catalog key with a logo and a display name', () => {
-    expect(PROVIDER_IDS).toEqual(['stripe', 'waffo', 'creem', 'paypal'])
+    expect(PROVIDER_IDS).toEqual(['stripe', 'waffo', 'creem', 'paypal', 'dodo'])
     for (const id of PROVIDER_IDS) {
       expect(isProviderId(id)).toBe(true)
       expect(PROVIDER_CATALOG[id].displayName.length).toBeGreaterThan(0)
@@ -200,7 +200,7 @@ describe('configuredProviders', () => {
   })
 
   test('a vendor counts as configured only when a product id is non-empty', () => {
-    const withIds = { ...PRO_TIER, monthly: { ...PRO_TIER.monthly, productIds: { stripe: 'price_x', waffo: '', creem: '', paypal: '' } } }
+    const withIds = { ...PRO_TIER, monthly: { ...PRO_TIER.monthly, productIds: { stripe: 'price_x', waffo: '', creem: '', paypal: '', dodo: '' } } }
     const tiers = [withIds, FREE_TIER, ENTERPRISE_TIER] as unknown as typeof planTiers
     const configured = PROVIDER_IDS.filter((id) =>
       tiers.some((tier) => !!priceFor(tier, 'monthly').productIds[id] || !!priceFor(tier, 'yearly').productIds[id]))

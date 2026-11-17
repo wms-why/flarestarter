@@ -74,7 +74,7 @@ FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实�
 - **[Cloudflare Workers](https://workers.cloudflare.com)** 运行时，经 `@cloudflare/vite-plugin` 部署
 - **[D1](https://developers.cloudflare.com/d1/)** (SQLite) + **[Drizzle ORM](https://orm.drizzle.team)** + 数据迁移
 - **[KV](https://developers.cloudflare.com/kv/)** 做缓存，**[R2](https://developers.cloudflare.com/r2/)** 做对象存储——已端到端接通（校验上传 + 私有服务路由），头像上传作参考实现
-- **[better-auth](https://better-auth.com)**、**[Stripe](https://stripe.com)**、**[Waffo](https://waffo.ai)**、**[Creem](https://creem.io)**、**[PayPal](https://paypal.com)**、邮件可选 **[Resend](https://resend.com)** 或 **[Flowmails](https://flowmails.net)**
+- **[better-auth](https://better-auth.com)**、**[Stripe](https://stripe.com)**、**[Waffo](https://waffo.ai)**、**[Creem](https://creem.io)**、**[PayPal](https://paypal.com)**、**[Dodo Payments](https://dodopayments.com)**、邮件可选 **[Resend](https://resend.com)** 或 **[Flowmails](https://flowmails.net)**
 - **[Tailwind CSS v4](https://tailwindcss.com)**
 - **[Vitest](https://vitest.dev)**（Node 单测 + 经 `@cloudflare/vitest-pool-workers` 的 Workers/D1 集成测试）
 
@@ -156,7 +156,7 @@ drizzle/           # 生成的 SQL 迁移文件（仓库根，与 src/ 同级）
 - `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（同时决定 canonical / sitemap origin）—— **必填**；启动时校验（见 [安全文档](https://flarestarter.com/docs/platform/security)）。
 - `EMAIL_PROVIDER`（邮件服务商：`resend` 默认，或 `flowmails`）；`RESEND_API_KEY` / `EMAIL_FLOWMAILS_APIKEY`（只读取所选服务商的 key，两者互不兜底）；`EMAIL_FROM`（留空则由控制台捕获）。
 - `GOOGLE_CLIENT_ID/SECRET`、`GITHUB_CLIENT_ID/SECRET`（可选社交登录）。
-- `BILLING_PROVIDERS`（计费服务商名单——`stripe,waffo,creem,paypal`；不设 = 四家全开，各家仍受密钥门控）；`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`，其余三家的 `WAFFO_*`、`CREEM_*`、`PAYPAL_*`。**商品 ID 在 `src/features/billing/plans.ts` 里，不在环境变量中**。`STRIPE_WECHAT_PAY_ENABLED`（可选,设 `false` 关掉赞助页的微信支付入口）。
+- `BILLING_PROVIDERS`（计费服务商名单——`stripe,waffo,creem,paypal,dodo`；不设 = 各家全开，各家仍受密钥门控）；`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`，其余几家的 `WAFFO_*`、`CREEM_*`、`PAYPAL_*`、`DODO_PAYMENTS_*`。**商品 ID 在 `src/features/billing/plans.ts` 里，不在环境变量中**。`STRIPE_WECHAT_PAY_ENABLED`（可选,设 `false` 关掉赞助页的微信支付入口）。
 - `ADMIN_EMAILS`（管理员邮箱）。
 - `TURNSTILE_SITE_KEY`、`TURNSTILE_SECRET_KEY`（可选的 bot 防护——见 [安全文档](https://flarestarter.com/docs/platform/security)）。
 - `SENTRY_DSN`（可选的服务端错误上报——见 [可观测性文档](https://flarestarter.com/docs/platform/observability)）。Web Analytics 不需要环境变量：在 Cloudflare 控制台开启后，beacon 由边缘自动注入。

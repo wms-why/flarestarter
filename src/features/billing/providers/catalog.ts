@@ -8,19 +8,22 @@
  * checkout page) the provider buttons. So the static half of each provider's
  * description lives here, and the env/SDK half lives beside it.
  *
- * All four providers are first-class: nothing in this file special-cases
- * Stripe. The two flags that *do* differ between vendors are capabilities, not
- * a hierarchy:
+ * Every provider is first-class: nothing in this file special-cases Stripe. The
+ * two flags that *do* differ between vendors are capabilities, not a hierarchy:
  *
- *   - `supportsPortal` — only Stripe ships a hosted customer portal. The other
- *     three get an in-app cancel button driven by `cancelMode` instead.
- *   - `cancelMode` — Creem cancels at period end; Waffo and PayPal cancel
- *     immediately (PayPal's API has no "cancel at period end" option). Callers
- *     must not assume cancellation is symmetric across vendors.
+ *   - `supportsPortal` — only Stripe's hosted customer portal is wired up in
+ *     this template. The others get an in-app cancel button driven by
+ *     `cancelMode` instead. (Dodo does have a portal, but it needs a
+ *     pre-provisioned customer id this adapter deliberately does not create —
+ *     see `dodo.ts`.)
+ *   - `cancelMode` — Stripe, Creem and Dodo cancel at period end; Waffo and
+ *     PayPal cancel immediately (PayPal's API has no "cancel at period end"
+ *     option). Callers must not assume cancellation is symmetric across
+ *     vendors.
  */
-export type ProviderId = 'stripe' | 'waffo' | 'creem' | 'paypal'
+export type ProviderId = 'stripe' | 'waffo' | 'creem' | 'paypal' | 'dodo'
 
-export const PROVIDER_IDS: readonly ProviderId[] = ['stripe', 'waffo', 'creem', 'paypal']
+export const PROVIDER_IDS: readonly ProviderId[] = ['stripe', 'waffo', 'creem', 'paypal', 'dodo']
 
 export interface ProviderMeta {
   /** Human-readable name, shown on the trust strip and the checkout buttons. */
@@ -72,6 +75,16 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderMeta> = {
     // No partial: without the webhook id PayPal can mint checkouts but cannot
     // durably record completions, so we treat that as "not configured".
     requiredEnv: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_WEBHOOK_ID'],
+  },
+  dodo: {
+    displayName: 'Dodo Payments',
+    logo: '/billing/dodo_32x32.svg',
+    // PATCH `cancel_at_next_billing_date` keeps the paid period intact.
+    cancelMode: 'at_period_end',
+    supportsPortal: false,
+    // No partial: without the webhook key every delivery fails verification, so
+    // a checkout that trusts it can never record a completion.
+    requiredEnv: ['DODO_PAYMENTS_API_KEY', 'DODO_PAYMENTS_WEBHOOK_KEY'],
   },
 }
 
