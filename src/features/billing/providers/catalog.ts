@@ -15,8 +15,9 @@
  *     All three mint the session per **customer**, so the adapter must have an
  *     id in hand: Dodo provisions it up front, Creem looks it up by email (it
  *     only creates the customer at checkout). Waffo and PayPal get an in-app
- *     cancel button driven by `cancelMode` instead — neither exposes a
- *     payer-management URL to merchants.
+ *     cancel button driven by `cancelMode` instead — Waffo does mint a
+ *     management URL, but only for a subscription id its hosted-checkout flow
+ *     never hands back, and PayPal has no such API at all. See each entry.
  *   - `cancelMode` — Stripe, Creem and Dodo cancel at period end; Waffo and
  *     PayPal cancel immediately (PayPal's API has no "cancel at period end"
  *     option). Callers must not assume cancellation is symmetric across
@@ -55,7 +56,21 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderMeta> = {
   waffo: {
     displayName: 'Waffo Pancake',
     logo: '/billing/waffo_32x32.webp',
+    // "Immediate" is what we ask for (`orders.cancelSubscription` sends no
+    // schedule), and Waffo's own /subscription/cancel agrees: an empty
+    // `scheduledCancelAt` cancels now. Its `canceling` order status is the
+    // window before the PSP confirms, and the row stays entitled through it —
+    // this never revokes access early, and never after the vendor ends it,
+    // because the terminal state only ever comes from the webhook.
     cancelMode: 'immediate',
+    // Waffo *does* mint a hosted management URL
+    // (POST /api/v1/subscription/manage → managementUrl, ~1 day expiry), but it
+    // is keyed on Waffo's own `subscriptionId`, which the hosted-checkout path
+    // never gives us: webhooks carry `orderId` only, `checkout.createSession`
+    // cannot set the merchant-side `subscriptionRequest`, and the SDK (0.11 and
+    // 0.28 alike) exposes no manage method. Reaching it would mean migrating
+    // Waffo to the raw /api/v1/subscription/create plus our own request
+    // signing — a rewrite, not a flag flip. Revisit only with that in scope.
     supportsPortal: false,
     // The private key may be supplied in two shapes (raw PEM or base64), so
     // `registry.ts` gates on "either one" rather than this list alone.
@@ -74,7 +89,13 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderMeta> = {
   paypal: {
     displayName: 'PayPal',
     logo: '/billing/paypal_32x32.webp',
+    // No "cancel at period end" exists: /subscriptions/{id}/cancel ends it now.
     cancelMode: 'immediate',
+    // Unlike Waffo there is nothing to reach even in principle: the v1 Billing
+    // Subscriptions API has no operation that mints a payer-facing management
+    // URL (create / get / patch / revise / suspend / cancel / activate /
+    // capture / transactions). Buyers can only self-manage inside paypal.com,
+    // which merchants cannot link to.
     supportsPortal: false,
     // No partial: without the webhook id PayPal can mint checkouts but cannot
     // durably record completions, so we treat that as "not configured".
