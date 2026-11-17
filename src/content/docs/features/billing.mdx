@@ -60,7 +60,7 @@ BILLING_PROVIDERS=stripe,waffo
 - **在 `BILLING_PROVIDERS` 里但密钥不全** → warn。这类错误的症状是「按钮不见了」而不是报错,不主动提示就只能等第一个付不了款的客户。
 - **密钥齐全但 `plans.ts` 里一个商品 ID 都没有** → warn,并且措辞很重。因为这是唯一会导致**「顾客付了钱却什么都没拿到」**的故障:webhook 验签正常、定价页正常渲染,只是 `tierForProduct` 反查不出档位。webhook 侧还会再打一条 `console.error` 点名是哪个商品 ID 对不上。
 
-半套凭据(只配了 key 没配 secret)是**硬错误**,与 OAuth 的处理一致——但**只在 `BILLING_PROVIDERS` 列出了该家时才判定**。开关未设等于「四家全开、各自受密钥门控」,无条件判定会让一个几个月前随手设过 `CREEM_API_KEY`、从未启用 Creem 的部署直接启动崩溃,正好违反本仓库的优雅降级约定。
+半套凭据(只配了 key 没配 secret)是**硬错误**,与 OAuth 的处理一致——但**只在 `BILLING_PROVIDERS` 列出了该家时才判定**。开关未设等于「各家全开、各自受密钥门控」,无条件判定会让一个几个月前随手设过 `CREEM_API_KEY`、从未启用 Creem 的部署直接启动崩溃,正好违反本仓库的优雅降级约定。
 
 ### Webhook 回调地址
 

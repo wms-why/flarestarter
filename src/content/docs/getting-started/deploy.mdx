@@ -103,7 +103,7 @@ but RESEND_API_KEY is not set …`(Flowmails 则为 `EMAIL_FLOWMAILS_APIKEY`)告
 - `TURNSTILE_SITE_KEY`(Turnstile 站点 key)
 - `AUTH_EMAIL_VERIFY`(是否强制注册邮箱验证;留空 = `true`,设 `false` 则注册完直接进后台)
 - `EMAIL_PROVIDER`(邮件服务商:`resend` = 默认,`flowmails` = 走 Flowmails SDK)
-- `BILLING_PROVIDERS`(启用哪些支付服务商,如 `stripe,waffo`;不设 = 四家全开,各家仍受密钥门控)
+- `BILLING_PROVIDERS`(启用哪些支付服务商,如 `stripe,waffo`;不设 = 各家全开,各家仍受密钥门控)
 - 商品 ID **不在环境变量里**,写在 `src/features/billing/plans.ts` 各档的 `productIds`,随代码一起部署
 - `BETTER_AUTH_URL` —— 设为你的线上域名,例如 `https://flarestarter.example.com`。首次只发
   workers.dev 时还没有自定义域,可先填可预测的 `https://flarestarter-production.<你的子域>.workers.dev`,

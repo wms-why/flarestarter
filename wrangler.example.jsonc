@@ -98,7 +98,10 @@
 		// secret-gated).
 		// Vendor product ids live in src/features/billing/plans.ts, not here.
 		"BILLING_PROVIDERS": "",
-		// Non-secret mode switches. Blank = sandbox/test; "live"/"prod" for production.
+		// Non-secret mode switches. Blank (or anything unrecognised) = sandbox/test.
+		// The exact spelling matters and differs per vendor: WAFFO_ENV takes "prod",
+		// while CREEM_ENV / PAYPAL_ENV / DODO_ENV only treat the word "live" as
+		// production — "prod" on those silently stays in test mode.
 		"WAFFO_ENV": "",
 		"CREEM_ENV": "",
 		"PAYPAL_ENV": "",

@@ -53,7 +53,7 @@ FlareStarter 只交付能跑的东西：仓库里的每个功能都是真实实�
 | 模块 | 能力 |
 |------|------|
 | **认证** | 基于 [better-auth](https://better-auth.com) 的邮箱密码登录（强制邮箱验证）、找回密码、注销账号。Google 与 GitHub OAuth ——未配置环境变量时按钮自动隐藏（优雅降级）。会话以 D1 作为唯一数据源，并配合 cookie 缓存。 |
-| **计费** | 四家可互换的支付服务商——**Stripe**、**Waffo Pancake**、**Creem**、**PayPal**——每家由一个 `BILLING_PROVIDERS` 开关控制启停，并各自受密钥门控。档位、价格、功能点、以及每家在各周期上的商品 ID 全部收敛在一个配置文件（`src/features/billing/plans.ts`）里：定价页由它渲染，结账页先展示订单的价格与具体权益，再让买家挑支付商。配置驱动的三档（免费 / Pro / 企业版）、与服务商无关的幂等 webhook、基于套餐的路由守卫，续费扣款失败时在 app 内提示更新支付方式（重试邮件交给服务商）——见 [计费文档](https://flarestarter.com/docs/features/billing)。 |
+| **计费** | 五家可互换的支付服务商——**Stripe**、**Waffo Pancake**、**Creem**、**PayPal**、**Dodo Payments**——每家由一个 `BILLING_PROVIDERS` 开关控制启停，并各自受密钥门控。档位、价格、功能点、以及每家在各周期上的商品 ID 全部收敛在一个配置文件（`src/features/billing/plans.ts`）里：定价页由它渲染，结账页先展示订单的价格与具体权益，再让买家挑支付商。配置驱动的三档（免费 / Pro / 企业版）、与服务商无关的幂等 webhook、基于套餐的路由守卫，续费扣款失败时在 app 内提示更新支付方式（重试邮件交给服务商）——见 [计费文档](https://flarestarter.com/docs/features/billing)。 |
 | **存储** | [R2](https://developers.cloudflare.com/r2/) 对象存储，内置完整的头像上传功能（包含类型与大小校验）。R2 存储桶默认非公开，图片通过服务端路由以流式代理返回。本地开发经 miniflare 零配置即可使用。这可用作后续所有文件上传功能的参考实现——见 [存储文档](https://flarestarter.com/docs/features/storage)。 |
 | **邮件** | [Resend](https://resend.com) 或 [Flowmails](https://flowmails.net)（用 `EMAIL_PROVIDER` 二选一）+ 字符串模板（React Email 在 workerd 上不可用）。如果没配 API key，邮件会直接打印到控制台，确保本地开发不会被卡住。 |
 | **等待列表 (Waitlist)** | 完整的 pre-launch 报名闭环：公开报名页、Turnstile 防刷、后台管理页 + CSV 导出，报名邮箱自动同步到 [Resend](https://resend.com) audience（未配 key 时优雅跳过）。 |

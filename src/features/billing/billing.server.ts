@@ -13,7 +13,7 @@ import { creditAccount, creditLedger } from '@/features/credits/credits.schema'
 import { applyCreditDelta, grantCredits, type GrantInput } from '@/features/credits/credits.server'
 import { packById } from '@/features/credits/credit-packs'
 import { resolveCreditPack } from '@/features/credits/credits.core'
-import { PLAN_TIER_ORDER } from './plans'
+import { paidPlanIds } from './plans'
 
 /** 读用户 entitlement（经归属缝）。 */
 export async function getEntitlementFor(db: DB, userId: string): Promise<Entitlement> {
@@ -164,8 +164,9 @@ async function reverseCreditPurchase(
 }
 
 /** 「已授权」= 状态在授权集合内且档位不低于 pro。与 `isActivePro` 一一对应，
- *  只是用 SQL 谓词表达，供下面的条件更新在数据库里判定。 */
-const PRO_PLANS = PLAN_TIER_ORDER.slice(PLAN_TIER_ORDER.indexOf('pro'))
+ *  只是用 SQL 谓词表达，供下面的条件更新在数据库里判定。档位列表由
+ *  `paidPlanIds()` 提供——`pro` 改名时它会炸，而不是静默退化成 `[enterprise]`。 */
+const PRO_PLANS = paidPlanIds()
 const ENTITLED_SQL = and(
   inArray(subscription.status, [...ENTITLING_STATUS_LIST]),
   inArray(subscription.plan, [...PRO_PLANS]),
@@ -377,12 +378,14 @@ export async function applyDomainEvent(
     return null
   }
   if (event.type === 'subscription.deleted') {
-    await db.update(subscription).set({
+    // 同一个认领逻辑的反向：终态事件也会并发到达（Dodo 把 cancelled/expired 与
+    // 携带终态的 updated 都映射到这条分支），快照判定会让 `onProDeactivated` 重复。
+    const transition = await claimSubscriptionTransition(db, row.id, {
       status: 'canceled', plan: 'free', subscriptionId: null, updatedAt: new Date(now),
       lastEventAt: occurredAt ?? row.lastEventAt,
       paymentFailedAt: null, // 订阅已死，「更新支付方式」横幅不该跟着免费用户一辈子
-    }).where(eq(subscription.id, row.id))
-    return wasPro ? { kind: 'deactivated', userId: row.userId, reason: 'canceled' } : null
+    }, false)
+    return transition === 'deactivated' ? { kind: 'deactivated', userId: row.userId, reason: 'canceled' } : null
   }
   return null
 }

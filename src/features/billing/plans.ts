@@ -187,6 +187,21 @@ export function isAtLeastTier(actual: Plan, required: Plan): boolean {
   return PLAN_TIER_ORDER.indexOf(actual) >= PLAN_TIER_ORDER.indexOf(required)
 }
 
+/**
+ * The tier ids that count as paid access — i.e. every tier at or above `pro`.
+ *
+ * Exists because `applyDomainEvent` has to express `isActivePro`'s plan test as
+ * a SQL predicate (`plan IN (...)`). Deriving it here keeps the two in step, and
+ * the explicit guard is load-bearing: a renamed `pro` would make `indexOf`
+ * return -1, silently demoting the list to `[enterprise]` and re-firing the
+ * activation hook for every Pro row on every event.
+ */
+export function paidPlanIds(): Plan[] {
+  const from = PLAN_TIER_ORDER.indexOf('pro')
+  if (from < 0) throw new Error(`PLAN_TIER_ORDER must contain "pro" (got ${PLAN_TIER_ORDER.join(', ')})`)
+  return PLAN_TIER_ORDER.slice(from)
+}
+
 export function priceFor(tier: PlanTier, interval: Interval): PlanPrice {
   return interval === 'yearly' ? tier.yearly : tier.monthly
 }

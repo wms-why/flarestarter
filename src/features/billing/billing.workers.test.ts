@@ -651,6 +651,41 @@ describe('8b. Activation is claimed at most once per row', () => {
       .toEqual({ kind: 'activated', userId, via: 'subscription' })
   })
 
+  test('a burst of concurrent activation events yields exactly one activation', async () => {
+    // This is the shape that produced two welcome emails: the events arrive
+    // together, so each call reads the row before any of them has written it.
+    // The claim lives in the UPDATE predicate, so exactly one of them wins here
+    // regardless of how the runtime interleaves the three calls.
+    const db = createDb(env.DB); const userId = `cl-burst-${crypto.randomUUID()}`; const customerId = cid()
+    await seedUserAndSubscription(db, { userId, customerId, status: 'none', plan: 'free' })
+
+    const results = await Promise.all([
+      applyDomainEvent(db, upsert(customerId, 'b1'), Date.now()),
+      applyDomainEvent(db, upsert(customerId, 'b2'), Date.now()),
+      applyDomainEvent(db, upsert(customerId, 'b3'), Date.now()),
+    ])
+    expect(results.filter(Boolean)).toHaveLength(1)
+    expect(results.find(Boolean)).toEqual({ kind: 'activated', userId, via: 'subscription' })
+  })
+
+  test('a burst of concurrent terminal events yields exactly one deactivation', async () => {
+    // The mirror of the above: Dodo maps cancelled/expired *and* any terminal
+    // `subscription.updated` into this branch, so a cancel burst arrives together.
+    const db = createDb(env.DB); const userId = `cl-del-${crypto.randomUUID()}`; const customerId = cid()
+    await seedUserAndSubscription(db, { userId, customerId, status: 'active', plan: 'pro', subscriptionId: 'sub_c' })
+    const deleted = (eventId: string) => ({
+      type: 'subscription.deleted' as const, providerId: 'stripe' as const, userId,
+      eventId, customerId, subscriptionId: 'sub_c',
+    })
+
+    const results = await Promise.all([
+      applyDomainEvent(db, deleted('d1'), Date.now()),
+      applyDomainEvent(db, deleted('d2'), Date.now()),
+    ])
+    expect(results.filter(Boolean)).toHaveLength(1)
+    expect(results.find(Boolean)).toEqual({ kind: 'deactivated', userId, reason: 'canceled' })
+  })
+
   test('the vendor-issued customer id is written back, and never cleared by an event without one', async () => {
     const db = createDb(env.DB); const userId = `cl-cus-${crypto.randomUUID()}`; const older = cid()
     await seedUserAndSubscription(db, { userId, customerId: older, status: 'none', plan: 'free' })

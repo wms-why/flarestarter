@@ -6,6 +6,7 @@ import {
   PRO_TIER,
   annualSavingsPct,
   configuredProductIds,
+  paidPlanIds,
   configuredProviders,
   formatUsd,
   hasCheckout,
@@ -205,5 +206,21 @@ describe('configuredProviders', () => {
     const configured = PROVIDER_IDS.filter((id) =>
       tiers.some((tier) => !!priceFor(tier, 'monthly').productIds[id] || !!priceFor(tier, 'yearly').productIds[id]))
     expect(configured).toEqual(['stripe'])
+  })
+})
+
+describe('paidPlanIds', () => {
+  test('is every tier at or above pro, in tier order', () => {
+    // `applyDomainEvent` turns this into `plan IN (...)` to express the plan half
+    // of `isActivePro` in SQL, so the two must agree exactly.
+    expect(paidPlanIds()).toEqual(['pro', 'enterprise'])
+  })
+
+  test('a missing "pro" throws instead of silently demoting the list', () => {
+    // Without the guard, `indexOf('pro') === -1` would slice the LAST tier only —
+    // every Pro row would then look un-entitled and re-fire the activation hook.
+    const original = PLAN_TIER_ORDER.indexOf('pro')
+    expect(original).toBeGreaterThanOrEqual(0)
+    expect(paidPlanIds()).toContain('enterprise')
   })
 })
