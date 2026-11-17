@@ -815,6 +815,83 @@ describe('15. startCheckout rejects already-subscribed users', () => {
 })
 
 // ---------------------------------------------------------------------------
+// 15b. Provider switch: the new vendor must never receive the old vendor's id
+// ---------------------------------------------------------------------------
+describe('15b. startCheckout does not hand a foreign customer id to the new provider', () => {
+  /** A provider that records what `startCheckout` offered it as the existing
+   *  customer id, and mints its own id when offered nothing. */
+  function recordingProvider(id: 'stripe' | 'dodo', seen: (string | null)[], minted: string): PaymentProvider {
+    return {
+      id,
+      displayName: id === 'dodo' ? 'Dodo Payments' : 'Stripe',
+      supportsPortal: true,
+      cancelMode: 'at_period_end',
+      ensureCustomer: async (_u, existing) => { seen.push(existing); return existing ?? minted },
+      createCheckoutSession: async () => ({ url: 'https://checkout.example/session' }),
+      createPortalSession: async () => ({ url: 'https://portal.example' }),
+      parseWebhook: async () => ({ type: 'ignored', eventId: 'x' }),
+      cancelSubscription: async () => {},
+    }
+  }
+
+  test('row owned by Stripe + checkout on Dodo → Dodo is passed null and takes ownership of the row', async () => {
+    const db = createDb(env.DB)
+    const userId = `sw-${crypto.randomUUID()}`
+    const now = Date.now()
+    // The row carries a Stripe customer. Both vendors use a `cus_` prefix, so
+    // nothing about the id's shape reveals that Dodo must not reuse it.
+    await seedUserAndSubscription(db, {
+      userId, customerId: 'cus_stripe_123', status: 'canceled', plan: 'free',
+    })
+    const seen: (string | null)[] = []
+    await startCheckout(db, recordingProvider('dodo', seen, 'cus_dodo_456'), { id: userId, email: `${userId}@t.io` }, 'pdt_pro', 'https://s', 'https://c', now)
+
+    expect(seen).toEqual([null])
+    const [row] = await db.select().from(subscription).where(eq(subscription.userId, userId))
+    expect(row.provider).toBe('dodo')
+    expect(row.customerId).toBe('cus_dodo_456')
+    expect(row.updatedAt.getTime()).toBe(now)
+  })
+
+  test('same provider → the existing customer id is reused and the row is left untouched', async () => {
+    const db = createDb(env.DB)
+    const userId = `sw-${crypto.randomUUID()}`
+    await seedUserAndSubscription(db, {
+      userId, customerId: 'cus_stripe_123', status: 'canceled', plan: 'free',
+    })
+    const [seeded] = await db.select().from(subscription).where(eq(subscription.userId, userId))
+    const now = seeded.updatedAt.getTime() + 60_000
+    const seen: (string | null)[] = []
+    await startCheckout(db, recordingProvider('stripe', seen, 'cus_unused'), { id: userId, email: `${userId}@t.io` }, 'price_pro', 'https://s', 'https://c', now)
+
+    expect(seen).toEqual(['cus_stripe_123'])
+    const [row] = await db.select().from(subscription).where(eq(subscription.userId, userId))
+    expect(row.provider).toBe('stripe')
+    expect(row.customerId).toBe('cus_stripe_123')
+    // Nothing changed → no write at all, so `updatedAt` still reads the seed time.
+    expect(row.updatedAt.getTime()).toBe(seeded.updatedAt.getTime())
+  })
+
+  test('the guard is symmetric: a Dodo-owned row checking out on Stripe is also passed null', async () => {
+    const db = createDb(env.DB)
+    const userId = `sw-${crypto.randomUUID()}`
+    await seedUserAndSubscription(db, {
+      userId, customerId: 'cus_dodo_456', status: 'canceled', plan: 'free',
+    })
+    // `providerChanged` is computed from the row, never from history, so the
+    // direction of the switch cannot matter.
+    await db.update(subscription).set({ provider: 'dodo' }).where(eq(subscription.userId, userId))
+    const seen: (string | null)[] = []
+    await startCheckout(db, recordingProvider('stripe', seen, 'cus_new'), { id: userId, email: `${userId}@t.io` }, 'price_pro', 'https://s', 'https://c', Date.now())
+
+    expect(seen).toEqual([null])
+    const [row] = await db.select().from(subscription).where(eq(subscription.userId, userId))
+    expect(row.provider).toBe('stripe')
+    expect(row.customerId).toBe('cus_new')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // 13. Account deletion pre-cleanup (wired into better-auth beforeDelete)
 // ---------------------------------------------------------------------------
 describe('13. cancelSubscriptionsForUser: account deletion must end live billing', () => {
